@@ -5,6 +5,8 @@
 //!
 //! # Examples
 //! ## An unboxed any
+//! As a quick example - The following wraps a 64-bit integer up in a StackDST using the Any trait.
+//!
 //! ```
 //! use stack_dst::StackDST;
 //! use std::any::Any;
@@ -24,7 +26,7 @@
 //!     StackDST::new(move || format!("Hello there! value={}", value)).expect("Closure doesn't fit")
 //! }
 //! let mut closure = make_closure(666);
-//! assert_eq!( closure(), "Hello there! value=666" );
+//! assert_eq!( (&mut *closure)(), "Hello there! value=666" );
 //! ```
 #![feature(core)]	// needed for intrinsics, raw, and Unsize
 #![cfg_attr(no_std,feature(no_std))]
