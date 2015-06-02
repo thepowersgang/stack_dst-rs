@@ -1,8 +1,31 @@
-// "Tifflin" Kernel
-// - By John Hodge (thePowersGang)
-//
-// Core/lib/stack_dsts.rs
-// - Support for stack-located trait objects
+//! Stack-based Dynamically-Sized Types
+//!
+//! The `StackDST` type provides a fixed size (7 word in the current version) buffer in which a trait object
+//! or array can be stored, without resorting to a heap allocation.
+//!
+//! # Examples
+//! ## An unboxed any
+//! ```
+//! use stack_dst::StackDST;
+//! use std::any::Any;
+//!
+//! let dst = StackDST::<Any>::new(1234u64).expect("Integer did not fit in allocation");
+//! println!("dst as u64 = {:?}", dst.downcast_ref::<u64>());
+//! println!("dst as i8 = {:?}", dst.downcast_ref::<i8>());
+//! ```
+//! 
+//! ## Stack-allocated closure!
+//! The following snippet shows how small (`'static`) closures can be returned using StackDST
+//!
+//! ```
+//! use stack_dst::StackDST;
+//! 
+//! fn make_closure(value: u64) -> StackDST<FnMut()->String> {
+//!     StackDST::new(move || format!("Hello there! value={}", value)).expect("Closure doesn't fit")
+//! }
+//! let mut closure = make_closure(666);
+//! assert_eq!( closure(), "Hello there! value=666" );
+//! ```
 #![feature(core)]	// needed for intrinsics, raw, and Unsize
 #![cfg_attr(no_std,feature(no_std))]
 #![cfg_attr(no_std,no_std)]
@@ -23,7 +46,9 @@ use std::{ops,mem,intrinsics,slice,raw,marker};
 use core::{ops,mem,intrinsics,slice,raw,marker};
 
 
-const DST_SIZE: usize = 6;
+const DST_SIZE: usize = 7;
+
+/// Stack-allocated DST
 pub struct StackDST<T: ?Sized>
 {
 	_pd: marker::PhantomData<T>,
@@ -35,7 +60,7 @@ impl<T: ?Sized> StackDST<T>
 {
 	/// Construct a stack-based DST
 	pub fn new<U: marker::Unsize<T>>(val: U) -> Option<StackDST<T>> {
-		unsafe {
+		let rv = unsafe {
 			let mut ptr: &T = &val;
 			let words = Self::ptr_as_slice(&mut ptr);
 			if words.len() != 2 {
@@ -47,7 +72,10 @@ impl<T: ?Sized> StackDST<T>
 				let raw::TraitObject { data, vtable } = *to_p;
 				StackDST::new_raw(vtable, data, mem::size_of::<U>())
 			}
-		}
+			};
+		// Prevent the destructor from running, now that we've copied it away
+		mem::forget(val);
+		rv
 	}
 	
 	unsafe fn new_raw(vtable: *mut (), data: *mut (), size: usize) -> Option<StackDST<T>>
@@ -70,7 +98,7 @@ impl<T: ?Sized> StackDST<T>
 		}
 	}
 
-	unsafe fn ptr_as_slice<'a>(ptr: &'a mut &T) -> &'a mut [usize] {
+	unsafe fn ptr_as_slice<'p>(ptr: &'p mut &T) -> &'p mut [usize] {
 		assert!( mem::size_of::<&T>() % mem::size_of::<usize>() == 0 );
 		let words = mem::size_of::<&T>() / mem::size_of::<usize>();
 		slice::from_raw_parts_mut(ptr as *mut &T as *mut usize, words)
