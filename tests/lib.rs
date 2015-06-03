@@ -68,3 +68,13 @@ fn closure()
 	let c: StackDST<Fn()->String> = StackDST::new(|| format!("{}", v1)).unwrap();
 	assert_eq!(c(), "1234");
 }
+
+
+#[test]
+fn oversize()
+{
+	use std::any::Any;
+	const MAX_SIZE_PTRS: usize = 7;
+	assert!( StackDST::<Any>::new([0usize; MAX_SIZE_PTRS]).is_some() );
+	assert!( StackDST::<Any>::new([0usize; MAX_SIZE_PTRS+1]).is_none() );
+}
