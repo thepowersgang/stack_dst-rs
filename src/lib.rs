@@ -28,8 +28,8 @@
 //! let mut closure = make_closure(666);
 //! assert_eq!( (&mut *closure)(), "Hello there! value=666" );
 //! ```
-#![feature(core)]	// needed for intrinsics, raw, and Unsize
-#![cfg_attr(no_std,feature(no_std))]
+#![feature(core_intrinsics,unsize)]	// needed for intrinsics, raw, and Unsize
+#![cfg_attr(no_std,feature(no_std,core,core_prelude,core_slice_ext))]
 #![cfg_attr(no_std,no_std)]
 #![crate_type="lib"]
 #![crate_name="stack_dst"]
