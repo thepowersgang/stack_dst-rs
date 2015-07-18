@@ -84,8 +84,8 @@ impl<T: ?Sized> StackDST<T>
 			let mut ptr: &T = &val;
 			let words = ptr_as_slice(&mut ptr);
 			assert!(words[0] == &val as *const _ as usize, "BUG: Pointer layout is not (data, ...)");
-			assert!(mem::min_align_of::<U>() <= mem::size_of::<usize>(), "TODO: Enforce alignment >{} (requires {})",
-				mem::size_of::<usize>(), mem::min_align_of::<U>());
+			assert!(mem::align_of::<U>() <= mem::size_of::<usize>(), "TODO: Enforce alignment >{} (requires {})",
+				mem::size_of::<usize>(), mem::align_of::<U>());
 			
 			StackDST::new_raw(&words[1..], words[0] as *mut (), mem::size_of::<U>())
 			};
