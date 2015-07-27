@@ -48,7 +48,8 @@ use std::{ops,mem,intrinsics,slice,marker};
 use core::{ops,mem,intrinsics,slice,marker};
 
 
-const DST_SIZE: usize = 8;
+// 8 data words, plus one metadata
+const DST_SIZE: usize = 8+1;
 
 /// Stack-allocated DST
 pub struct StackDST<T: ?Sized>
