@@ -38,6 +38,7 @@ fn many_instances()
 	
 	#[inline(never)]
 	fn instance_one() -> StackDST<TestTrait> {
+		#[derive(Debug)]
 		struct OneStruct(u32);
 		impl TestTrait for OneStruct {
 			fn get_value(&self) -> u32 { self.0 }
@@ -47,6 +48,7 @@ fn many_instances()
 	
 	#[inline(never)]
 	fn instance_two() -> StackDST<TestTrait> {
+		#[derive(Debug)]
 		struct TwoStruct;
 		impl TestTrait for TwoStruct {
 			fn get_value(&self) -> u32 { 54321 }
@@ -65,7 +67,7 @@ fn many_instances()
 fn closure()
 {
 	let v1 = 1234u64;
-	let c: StackDST<Fn()->String> = StackDST::new(|| format!("{}", v1)).unwrap();
+	let c: StackDST<Fn()->String> = StackDST::new(|| format!("{}", v1)).map_err(|_| "Oops").unwrap();
 	assert_eq!(c(), "1234");
 }
 
@@ -75,6 +77,6 @@ fn oversize()
 {
 	use std::any::Any;
 	const MAX_SIZE_PTRS: usize = 7;
-	assert!( StackDST::<Any>::new([0usize; MAX_SIZE_PTRS]).is_some() );
-	assert!( StackDST::<Any>::new([0usize; MAX_SIZE_PTRS+1]).is_none() );
+	assert!( StackDST::<Any>::new([0usize; MAX_SIZE_PTRS]).is_ok() );
+	assert!( StackDST::<Any>::new([0usize; MAX_SIZE_PTRS+1]).is_err() );
 }

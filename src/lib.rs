@@ -80,7 +80,7 @@ unsafe fn as_ptr<T: ?Sized>(s: &StackDST<T>) -> *mut T {
 impl<T: ?Sized> StackDST<T>
 {
 	/// Construct a stack-based DST
-	pub fn new<U: marker::Unsize<T>>(val: U) -> Option<StackDST<T>> {
+	pub fn new<U: marker::Unsize<T>>(val: U) -> Result<StackDST<T>,U> {
 		let rv = unsafe {
 			let mut ptr: &T = &val;
 			let words = ptr_as_slice(&mut ptr);
@@ -90,9 +90,17 @@ impl<T: ?Sized> StackDST<T>
 			
 			StackDST::new_raw(&words[1..], words[0] as *mut (), mem::size_of::<U>())
 			};
-		// Prevent the destructor from running, now that we've copied it away
-		mem::forget(val);
-		rv
+		match rv
+		{
+		Some(r) => {
+			// Prevent the destructor from running, now that we've copied it away
+			mem::forget(val);
+			Ok(r)
+			},
+		None => {
+			Err(val)
+			},
+		}
 	}
 	
 	unsafe fn new_raw(info: &[usize], data: *mut (), size: usize) -> Option<StackDST<T>>
