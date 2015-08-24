@@ -74,7 +74,7 @@ fn closure()
 fn oversize()
 {
 	use std::any::Any;
-	const MAX_SIZE_PTRS: usize = 7;
+	const MAX_SIZE_PTRS: usize = 8;
 	assert!( StackDST::<Any>::new([0usize; MAX_SIZE_PTRS]).is_some() );
 	assert!( StackDST::<Any>::new([0usize; MAX_SIZE_PTRS+1]).is_none() );
 }
