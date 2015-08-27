@@ -29,17 +29,10 @@
 //! assert_eq!( (&mut *closure)(), "Hello there! value=666" );
 //! ```
 #![feature(core_intrinsics,unsize)]	// needed for intrinsics, raw, and Unsize
-#![cfg_attr(no_std,feature(no_std,core,core_prelude,core_slice_ext))]
+#![cfg_attr(no_std,feature(no_std,core_slice_ext))]
 #![cfg_attr(no_std,no_std)]
 #![crate_type="lib"]
 #![crate_name="stack_dst"]
-
-#[cfg(no_std)]
-#[macro_use]
-extern crate core;
-
-#[cfg(no_std)]
-use core::prelude::*;
 
 #[cfg(not(no_std))]
 use std::{ops,mem,intrinsics,slice,marker};
