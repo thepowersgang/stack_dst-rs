@@ -11,7 +11,7 @@
 //! use stack_dst::StackDST;
 //! use std::any::Any;
 //!
-//! let dst = StackDST::<Any>::new(1234u64).expect("Integer did not fit in allocation");
+//! let dst = StackDST::<Any>::new(1234u64).ok().expect("Integer did not fit in allocation");
 //! println!("dst as u64 = {:?}", dst.downcast_ref::<u64>());
 //! println!("dst as i8 = {:?}", dst.downcast_ref::<i8>());
 //! ```
@@ -23,7 +23,7 @@
 //! use stack_dst::StackDST;
 //! 
 //! fn make_closure(value: u64) -> StackDST<FnMut()->String> {
-//!     StackDST::new(move || format!("Hello there! value={}", value)).expect("Closure doesn't fit")
+//!     StackDST::new(move || format!("Hello there! value={}", value)).ok().expect("Closure doesn't fit")
 //! }
 //! let mut closure = make_closure(666);
 //! assert_eq!( (&mut *closure)(), "Hello there! value=666" );
