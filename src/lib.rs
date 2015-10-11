@@ -47,7 +47,10 @@ const DST_SIZE: usize = 8+1;
 /// Stack-allocated DST
 pub struct StackDST<T: ?Sized>
 {
+	// Force alignment to be 8 bytes (for types that contain u64s)
+	_align: [u64; 0],
 	_pd: marker::PhantomData<T>,
+	// Data contains the object data first, then padding, then the pointer information
 	data: [usize; DST_SIZE],
 }
 
@@ -56,15 +59,19 @@ unsafe fn ptr_as_slice<'p, T: ?Sized>(ptr: &'p mut &T) -> &'p mut [usize] {
 	let words = mem::size_of::<&T>() / mem::size_of::<usize>();
 	slice::from_raw_parts_mut(ptr as *mut &T as *mut usize, words)
 }
+
+/// Obtain raw pointer given a StackDST reference
 unsafe fn as_ptr<T: ?Sized>(s: &StackDST<T>) -> *mut T {
 	let mut ret: &T = mem::zeroed();
 	{
 		let ret_as_slice = ptr_as_slice(&mut ret);
 		// 1. Data pointer
-		ret_as_slice[0] = s.data[ret_as_slice.len()-1..].as_ptr() as usize;
+		ret_as_slice[0] = s.data[..].as_ptr() as usize;
 		// 2. Pointer info
-		for i in (1 .. ret_as_slice.len()) {
-			ret_as_slice[i] = s.data[i-1];
+		let info_size = ret_as_slice.len() - 1;
+		let info_ofs = s.data.len() - info_size;
+		for i in (0 .. info_size) {
+			ret_as_slice[1+i] = s.data[info_ofs + i];
 		}
 	}
 	ret as *const _ as *mut _
@@ -73,13 +80,16 @@ unsafe fn as_ptr<T: ?Sized>(s: &StackDST<T>) -> *mut T {
 impl<T: ?Sized> StackDST<T>
 {
 	/// Construct a stack-based DST
+	/// 
+	/// Returns Ok(dst) if the allocation was successful, or Err(val) if it failed
 	pub fn new<U: marker::Unsize<T>>(val: U) -> Result<StackDST<T>,U> {
 		let rv = unsafe {
 			let mut ptr: &T = &val;
 			let words = ptr_as_slice(&mut ptr);
-			assert!(words[0] == &val as *const _ as usize, "BUG: Pointer layout is not (data, ...)");
-			assert!(mem::align_of::<U>() <= mem::size_of::<usize>(), "TODO: Enforce alignment >{} (requires {})",
-				mem::size_of::<usize>(), mem::align_of::<U>());
+			assert!(words[0] == &val as *const _ as usize, "BUG: Pointer layout is not (data_ptr, info...)");
+			// - Ensure that Self is aligned same as data requires
+			assert!(mem::align_of::<U>() <= mem::align_of::<Self>(), "TODO: Enforce alignment >{} (requires {})",
+				mem::align_of::<Self>(), mem::align_of::<U>());
 			
 			StackDST::new_raw(&words[1..], words[0] as *mut (), mem::size_of::<U>())
 			};
@@ -103,15 +113,23 @@ impl<T: ?Sized> StackDST<T>
 		}
 		else {
 			let mut rv = StackDST {
+					_align: [],
 					_pd: marker::PhantomData,
 					data: mem::zeroed(),
 				};
-			for i in (0 .. info.len()) {
-				rv.data[i] = info[i];
+
+			// Place pointer information at the end of the region
+			// - Allows the data to be at the start for alignment purposes
+			{
+				let info_ofs = rv.data.len() - info.len();
+				let info_dst = &mut rv.data[info_ofs..];
+				for (d,v) in Iterator::zip( info_dst.iter_mut(), info.iter() ) {
+					*d = *v;
+				}
 			}
 			
 			let src_ptr = data as *const u8;
-			let dataptr = rv.data[info.len()..].as_mut_ptr() as *mut u8;
+			let dataptr = rv.data[..].as_mut_ptr() as *mut u8;
 			for i in (0 .. size) {
 				*dataptr.offset(i as isize) = *src_ptr.offset(i as isize);
 			}

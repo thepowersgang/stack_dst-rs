@@ -5,7 +5,7 @@ This crate provides a simple way of returnings DSTs up to a certain size without
 
 # Basic usage
 The core type is `StackDST<Trait>`, which represents a fixed-capacity allocation of an unsized type.
-The `new` method on this type allows creating a instance from a concrete type, returning `None` if the instance is too large
+The `new` method on this type allows creating a instance from a concrete type, returning `Err(value)` if the instance is too large
 for the allocated region.
 
 # Example
@@ -15,7 +15,7 @@ takes ownership of `value`, and is saved to a StackDST
 use stack_dst::StackDST;
 
 fn make_closure(value: u64) -> StackDST<Fn()->String> {
-    StackDST::new(move || format!("Hello there! value={}", value)).expect("Closure doesn't fit")
+    StackDST::new(move || format!("Hello there! value={}", value)).ok().expect("Closure doesn't fit")
 }
 let closure = make_closure(12);
 assert_eq!( closure(), "Hello there! value=12" );
