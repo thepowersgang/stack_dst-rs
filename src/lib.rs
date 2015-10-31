@@ -28,30 +28,38 @@
 //! let mut closure = make_closure(666);
 //! assert_eq!( (&mut *closure)(), "Hello there! value=666" );
 //! ```
-#![feature(core_intrinsics,unsize)]	// needed for intrinsics, raw, and Unsize
+#![feature(unsize,drop_in_place)]	// needed for intrinsics, raw, and Unsize
 #![cfg_attr(no_std,feature(no_std,core_slice_ext))]
 #![cfg_attr(no_std,no_std)]
 #![crate_type="lib"]
 #![crate_name="stack_dst"]
 
 #[cfg(not(no_std))]
-use std::{ops,mem,intrinsics,slice,marker};
+use std::{ops,mem,slice,marker,ptr};
 
 #[cfg(no_std)]
-use core::{ops,mem,intrinsics,slice,marker};
+use core::{ops,mem,slice,marker,ptr};
 
+/// Trait used to represent the data buffer for StackDSTA.
+/// 
+/// Typically you'll passs a [usize; N] array
+pub trait DataBuf: Default+AsMut<[usize]>+AsRef<[usize]> {
+}
+impl<T: Default+AsMut<[usize]>+AsRef<[usize]>> DataBuf for T {
+}
 
 // 8 data words, plus one metadata
 const DST_SIZE: usize = 8+1;
 
 /// Stack-allocated DST
-pub struct StackDST<T: ?Sized>
-{
+pub type StackDST<T/*: ?Sized*/> = StackDSTA<T, [usize; DST_SIZE]>;
+
+pub struct StackDSTA<T: ?Sized, D: DataBuf> {
 	// Force alignment to be 8 bytes (for types that contain u64s)
 	_align: [u64; 0],
 	_pd: marker::PhantomData<T>,
 	// Data contains the object data first, then padding, then the pointer information
-	data: [usize; DST_SIZE],
+	data: D,
 }
 
 unsafe fn ptr_as_slice<'p, T: ?Sized>(ptr: &'p mut &T) -> &'p mut [usize] {
@@ -61,28 +69,29 @@ unsafe fn ptr_as_slice<'p, T: ?Sized>(ptr: &'p mut &T) -> &'p mut [usize] {
 }
 
 /// Obtain raw pointer given a StackDST reference
-unsafe fn as_ptr<T: ?Sized>(s: &StackDST<T>) -> *mut T {
+unsafe fn as_ptr<T: ?Sized, D: DataBuf>(s: &StackDSTA<T, D>) -> *mut T {
 	let mut ret: &T = mem::zeroed();
 	{
 		let ret_as_slice = ptr_as_slice(&mut ret);
+		let data = s.data.as_ref();
 		// 1. Data pointer
-		ret_as_slice[0] = s.data[..].as_ptr() as usize;
+		ret_as_slice[0] = data[..].as_ptr() as usize;
 		// 2. Pointer info
 		let info_size = ret_as_slice.len() - 1;
-		let info_ofs = s.data.len() - info_size;
-		for i in (0 .. info_size) {
-			ret_as_slice[1+i] = s.data[info_ofs + i];
+		let info_ofs = data.len() - info_size;
+		for i in 0 .. info_size {
+			ret_as_slice[1+i] = data[info_ofs + i];
 		}
 	}
 	ret as *const _ as *mut _
 }
 
-impl<T: ?Sized> StackDST<T>
+impl<T: ?Sized, D: DataBuf> StackDSTA<T, D>
 {
 	/// Construct a stack-based DST
 	/// 
 	/// Returns Ok(dst) if the allocation was successful, or Err(val) if it failed
-	pub fn new<U: marker::Unsize<T>>(val: U) -> Result<StackDST<T>,U> {
+	pub fn new<U: marker::Unsize<T>>(val: U) -> Result<StackDSTA<T,D>,U> {
 		let rv = unsafe {
 			let mut ptr: &T = &val;
 			let words = ptr_as_slice(&mut ptr);
@@ -91,7 +100,7 @@ impl<T: ?Sized> StackDST<T>
 			assert!(mem::align_of::<U>() <= mem::align_of::<Self>(), "TODO: Enforce alignment >{} (requires {})",
 				mem::align_of::<Self>(), mem::align_of::<U>());
 			
-			StackDST::new_raw(&words[1..], words[0] as *mut (), mem::size_of::<U>())
+			StackDSTA::new_raw(&words[1..], words[0] as *mut (), mem::size_of::<U>())
 			};
 		match rv
 		{
@@ -106,38 +115,39 @@ impl<T: ?Sized> StackDST<T>
 		}
 	}
 	
-	unsafe fn new_raw(info: &[usize], data: *mut (), size: usize) -> Option<StackDST<T>>
+	unsafe fn new_raw(info: &[usize], data: *mut (), size: usize) -> Option<StackDSTA<T,D>>
 	{
-		if info.len()*mem::size_of::<usize>() + size > mem::size_of::<[usize; DST_SIZE]>() {
+		if info.len()*mem::size_of::<usize>() + size > mem::size_of::<D>() {
 			None
 		}
 		else {
-			let mut rv = StackDST {
+			let mut rv = StackDSTA {
 					_align: [],
 					_pd: marker::PhantomData,
-					data: mem::zeroed(),
+					data: D::default(),
 				};
+			assert!(info.len() + (size + mem::size_of::<usize>() - 1) / mem::size_of::<usize>() <= rv.data.as_ref().len());
 
 			// Place pointer information at the end of the region
 			// - Allows the data to be at the start for alignment purposes
 			{
-				let info_ofs = rv.data.len() - info.len();
-				let info_dst = &mut rv.data[info_ofs..];
+				let info_ofs = rv.data.as_ref().len() - info.len();
+				let info_dst = &mut rv.data.as_mut()[info_ofs..];
 				for (d,v) in Iterator::zip( info_dst.iter_mut(), info.iter() ) {
 					*d = *v;
 				}
 			}
 			
 			let src_ptr = data as *const u8;
-			let dataptr = rv.data[..].as_mut_ptr() as *mut u8;
-			for i in (0 .. size) {
+			let dataptr = rv.data.as_mut()[..].as_mut_ptr() as *mut u8;
+			for i in 0 .. size {
 				*dataptr.offset(i as isize) = *src_ptr.offset(i as isize);
 			}
 			Some(rv)
 		}
 	}
 }
-impl<T: ?Sized> ops::Deref for StackDST<T> {
+impl<T: ?Sized, D: DataBuf> ops::Deref for StackDSTA<T, D> {
 	type Target = T;
 	fn deref(&self) -> &T {
 		unsafe {
@@ -145,17 +155,17 @@ impl<T: ?Sized> ops::Deref for StackDST<T> {
 		}
 	}
 }
-impl<T: ?Sized> ops::DerefMut for StackDST<T> {
+impl<T: ?Sized, D: DataBuf> ops::DerefMut for StackDSTA<T, D> {
 	fn deref_mut(&mut self) -> &mut T {
 		unsafe {
 			&mut *as_ptr(self)
 		}
 	}
 }
-impl<T: ?Sized> ops::Drop for StackDST<T> {
+impl<T: ?Sized, D: DataBuf> ops::Drop for StackDSTA<T, D> {
 	fn drop(&mut self) {
 		unsafe {
-			intrinsics::drop_in_place(&mut **self)
+			ptr::drop_in_place(&mut **self)
 		}
 	}
 }
