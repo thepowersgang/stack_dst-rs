@@ -211,6 +211,11 @@
 <span id="169">169</span>
 <span id="170">170</span>
 <span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
 </pre><pre class='rust '>
 <span class='doccomment'>//! Stack-based Dynamically-Sized Types</span>
 <span class='doccomment'>//!</span>
@@ -247,6 +252,7 @@
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>cfg_attr</span>(<span class='ident'>no_std</span>,<span class='ident'>no_std</span>)]</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>crate_type</span><span class='op'>=</span><span class='string'>&quot;lib&quot;</span>]</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>crate_name</span><span class='op'>=</span><span class='string'>&quot;stack_dst&quot;</span>]</span>
+<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>deny</span>(<span class='ident'>missing_docs</span>)]</span>
 
 <span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>not</span>(<span class='ident'>no_std</span>))]</span>
 <span class='kw'>use</span> <span class='ident'>std</span>::{<span class='ident'>ops</span>,<span class='ident'>mem</span>,<span class='ident'>slice</span>,<span class='ident'>marker</span>,<span class='ident'>ptr</span>};
@@ -262,12 +268,16 @@
 <span class='kw'>impl</span><span class='op'>&lt;</span><span class='ident'>T</span>: <span class='ident'>Default</span><span class='op'>+</span><span class='ident'>AsMut</span><span class='op'>&lt;</span>[<span class='ident'>usize</span>]<span class='op'>&gt;</span><span class='op'>+</span><span class='ident'>AsRef</span><span class='op'>&lt;</span>[<span class='ident'>usize</span>]<span class='op'>&gt;&gt;</span> <span class='ident'>DataBuf</span> <span class='kw'>for</span> <span class='ident'>T</span> {
 }
 
-<span class='comment'>// 8 data words, plus one metadata</span>
-<span class='kw'>const</span> <span class='ident'>DST_SIZE</span>: <span class='ident'>usize</span> <span class='op'>=</span> <span class='number'>8</span><span class='op'>+</span><span class='number'>1</span>;
+<span class='doccomment'>/// 8 data words, plus one metadata</span>
+<span class='kw'>pub</span> <span class='kw'>const</span> <span class='ident'>DEFAULT_SIZE</span>: <span class='ident'>usize</span> <span class='op'>=</span> <span class='number'>8</span><span class='op'>+</span><span class='number'>1</span>;
 
-<span class='doccomment'>/// Stack-allocated DST</span>
-<span class='kw'>pub</span> <span class='kw'>type</span> <span class='ident'>StackDST</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='comment'>/*: ?Sized*/</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>StackDSTA</span><span class='op'>&lt;</span><span class='ident'>T</span>, [<span class='ident'>usize</span>; <span class='ident'>DST_SIZE</span>]<span class='op'>&gt;</span>;
+<span class='doccomment'>/// Stack-allocated DST (using a default size)</span>
+<span class='kw'>pub</span> <span class='kw'>type</span> <span class='ident'>StackDST</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='comment'>/*: ?Sized*/</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>StackDSTA</span><span class='op'>&lt;</span><span class='ident'>T</span>, [<span class='ident'>usize</span>; <span class='ident'>DEFAULT_SIZE</span>]<span class='op'>&gt;</span>;
 
+<span class='doccomment'>/// Stack-allocated dynamically sized type</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// `T` is the unsized type contaned.</span>
+<span class='doccomment'>/// `D` is the buffer used to hold the unsized type (both data and metadata).</span>
 <span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>StackDSTA</span><span class='op'>&lt;</span><span class='ident'>T</span>: ?<span class='ident'>Sized</span>, <span class='ident'>D</span>: <span class='ident'>DataBuf</span><span class='op'>&gt;</span> {
 	<span class='comment'>// Force alignment to be 8 bytes (for types that contain u64s)</span>
 	<span class='ident'>_align</span>: [<span class='ident'>u64</span>; <span class='number'>0</span>],

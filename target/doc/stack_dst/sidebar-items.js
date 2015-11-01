@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["StackDSTA",""]],"trait":[["DataBuf","Trait used to represent the data buffer for StackDSTA."]],"type":[["StackDST","Stack-allocated DST"]]});
+initSidebarItems({"constant":[["DEFAULT_SIZE","8 data words, plus one metadata"]],"struct":[["StackDSTA","Stack-allocated dynamically sized type"]],"trait":[["DataBuf","Trait used to represent the data buffer for StackDSTA."]],"type":[["StackDST","Stack-allocated DST (using a default size)"]]});
