@@ -33,6 +33,7 @@
 #![cfg_attr(no_std,no_std)]
 #![crate_type="lib"]
 #![crate_name="stack_dst"]
+#![deny(missing_docs)]
 
 #[cfg(not(no_std))]
 use std::{ops,mem,slice,marker,ptr};
@@ -48,12 +49,16 @@ pub trait DataBuf: Default+AsMut<[usize]>+AsRef<[usize]> {
 impl<T: Default+AsMut<[usize]>+AsRef<[usize]>> DataBuf for T {
 }
 
-// 8 data words, plus one metadata
-const DST_SIZE: usize = 8+1;
+/// 8 data words, plus one metadata
+pub const DEFAULT_SIZE: usize = 8+1;
 
-/// Stack-allocated DST
-pub type StackDST<T/*: ?Sized*/> = StackDSTA<T, [usize; DST_SIZE]>;
+/// Stack-allocated DST (using a default size)
+pub type StackDST<T/*: ?Sized*/> = StackDSTA<T, [usize; DEFAULT_SIZE]>;
 
+/// Stack-allocated dynamically sized type
+///
+/// `T` is the unsized type contaned.
+/// `D` is the buffer used to hold the unsized type (both data and metadata).
 pub struct StackDSTA<T: ?Sized, D: DataBuf> {
 	// Force alignment to be 8 bytes (for types that contain u64s)
 	_align: [u64; 0],
