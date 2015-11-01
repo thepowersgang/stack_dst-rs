@@ -1,7 +1,12 @@
 language: rust
 rust: nightly
 sudo: false
-
 script:
  - cargo build
  - cargo test
+ - cargo doc
+after_success:
+ - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash deploy.sh
+env:
+  global:
+    secure: F4t5MSwRFZKyi89/SqCpDdjxTwr4qTtQh2lvJsvuYaRmeIKQNVgIbOEMFQqSoxAWfzyH+Dte3RsZnl+OTjiLDlNGgkxbk7AipZwb/GlrzCa8GTOFuNM5DJT2TCZ4SvgXrMY3/af3lQZZYhBjKAoy50QsjM5oQaksLj6zxsQyXP6DgGdooBvLoZVlZ7vFQ+JnD25ArZi8yK/l9/W3ccR2hY993+T/8QJ2XazwUHl4oiAM+hzrSwGlvMayM6duDrSN23EFLwlZr9XXTUEr/4a7HNsQbleiK+lpCMuGLRVq6oAHCXq1sCXjR32hC6ZErXikE9fk9QTN7HmHPWhjyu+J85ytojXPW7KQZixRltFonCFoQSBVLqS9JAIOj4s1GC6GAy4nJDq8nP/E7M2VafT+5ykgylYVlekraYy5Hrg36gnMCit+aKe9GNbk8gAybSQZJUY/mMFuGLW16hJDtON9nwJjKlTj3pGcVhe4wDnRLG5+f5FYg07mZPjD2v8BH8nK3o4Av7B/Bcv7Rmi6ZXCY0sOtjyWJQXFjZka4CA4M8ykrFkptZoFXlrH/ehWngaXdJus/q5xH+Y2vjvxdaHS1Cy1JU4uKJTygZO9k8AdlbT1BlVEZcEfbUeWApAhb6cuHczZzq5+83FC5BU4IMGSm+AJ/Aw6u0t3MMujsQt1os0Q=
