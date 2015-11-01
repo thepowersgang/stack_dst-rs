@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["StackDSTA",""]],"trait":[["DataBuf","Trait used to represent the data buffer for StackDSTA."]],"type":[["StackDST","Stack-allocated DST"]]});
