@@ -217,6 +217,11 @@
 <span id="174">174</span>
 <span id="175">175</span>
 <span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
 </pre><pre class='rust '>
 <span class='doccomment'>//! Stack-based Dynamically-Sized Types</span>
 <span class='doccomment'>//!</span>
@@ -249,24 +254,26 @@
 <span class='doccomment'>//! assert_eq!( (&amp;mut *closure)(), &quot;Hello there! value=666&quot; );</span>
 <span class='doccomment'>//! ```</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>feature</span>(<span class='ident'>unsize</span>,<span class='ident'>drop_in_place</span>)]</span>	<span class='comment'>// needed for intrinsics, raw, and Unsize</span>
-<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>cfg_attr</span>(<span class='ident'>no_std</span>,<span class='ident'>feature</span>(<span class='ident'>no_std</span>,<span class='ident'>core_slice_ext</span>))]</span>
-<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>cfg_attr</span>(<span class='ident'>no_std</span>,<span class='ident'>no_std</span>)]</span>
+<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>feature</span>(<span class='ident'>unsafe_no_drop_flag</span>,<span class='ident'>filling_drop</span>)]</span>	<span class='comment'>// Reduce overheads</span>
+
+<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>cfg_attr</span>(<span class='ident'>feature</span><span class='op'>=</span><span class='string'>&quot;no_std&quot;</span>,<span class='ident'>no_std</span>)]</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>crate_type</span><span class='op'>=</span><span class='string'>&quot;lib&quot;</span>]</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>crate_name</span><span class='op'>=</span><span class='string'>&quot;stack_dst&quot;</span>]</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>deny</span>(<span class='ident'>missing_docs</span>)]</span>
 
-<span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>not</span>(<span class='ident'>no_std</span>))]</span>
 <span class='kw'>use</span> <span class='ident'>std</span>::{<span class='ident'>ops</span>,<span class='ident'>mem</span>,<span class='ident'>slice</span>,<span class='ident'>marker</span>,<span class='ident'>ptr</span>};
 
-<span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>no_std</span>)]</span>
-<span class='kw'>use</span> <span class='ident'>core</span>::{<span class='ident'>ops</span>,<span class='ident'>mem</span>,<span class='ident'>slice</span>,<span class='ident'>marker</span>,<span class='ident'>ptr</span>};
+<span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>feature</span><span class='op'>=</span><span class='string'>&quot;no_std&quot;</span>)]</span>
+<span class='kw'>mod</span> <span class='ident'>std</span> {
+	<span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>core</span>::{<span class='ident'>ops</span>,<span class='ident'>mem</span>,<span class='ident'>slice</span>,<span class='ident'>marker</span>,<span class='ident'>ptr</span>};
+}
 
 <span class='doccomment'>/// Trait used to represent the data buffer for StackDSTA.</span>
 <span class='doccomment'>/// </span>
 <span class='doccomment'>/// Typically you&#39;ll passs a [usize; N] array</span>
-<span class='kw'>pub</span> <span class='kw'>trait</span> <span class='ident'>DataBuf</span>: <span class='ident'>Default</span><span class='op'>+</span><span class='ident'>AsMut</span><span class='op'>&lt;</span>[<span class='ident'>usize</span>]<span class='op'>&gt;</span><span class='op'>+</span><span class='ident'>AsRef</span><span class='op'>&lt;</span>[<span class='ident'>usize</span>]<span class='op'>&gt;</span> {
+<span class='kw'>pub</span> <span class='kw'>trait</span> <span class='ident'>DataBuf</span>: <span class='ident'>Copy</span><span class='op'>+</span><span class='ident'>Default</span><span class='op'>+</span><span class='ident'>AsMut</span><span class='op'>&lt;</span>[<span class='ident'>usize</span>]<span class='op'>&gt;</span><span class='op'>+</span><span class='ident'>AsRef</span><span class='op'>&lt;</span>[<span class='ident'>usize</span>]<span class='op'>&gt;</span> {
 }
-<span class='kw'>impl</span><span class='op'>&lt;</span><span class='ident'>T</span>: <span class='ident'>Default</span><span class='op'>+</span><span class='ident'>AsMut</span><span class='op'>&lt;</span>[<span class='ident'>usize</span>]<span class='op'>&gt;</span><span class='op'>+</span><span class='ident'>AsRef</span><span class='op'>&lt;</span>[<span class='ident'>usize</span>]<span class='op'>&gt;&gt;</span> <span class='ident'>DataBuf</span> <span class='kw'>for</span> <span class='ident'>T</span> {
+<span class='kw'>impl</span><span class='op'>&lt;</span><span class='ident'>T</span>: <span class='ident'>Copy</span><span class='op'>+</span><span class='ident'>Default</span><span class='op'>+</span><span class='ident'>AsMut</span><span class='op'>&lt;</span>[<span class='ident'>usize</span>]<span class='op'>&gt;</span><span class='op'>+</span><span class='ident'>AsRef</span><span class='op'>&lt;</span>[<span class='ident'>usize</span>]<span class='op'>&gt;&gt;</span> <span class='ident'>DataBuf</span> <span class='kw'>for</span> <span class='ident'>T</span> {
 }
 
 <span class='doccomment'>/// 8 data words, plus one metadata</span>
@@ -279,6 +286,7 @@
 <span class='doccomment'>///</span>
 <span class='doccomment'>/// `T` is the unsized type contaned.</span>
 <span class='doccomment'>/// `D` is the buffer used to hold the unsized type (both data and metadata).</span>
+<span class='attribute'>#[<span class='ident'>unsafe_no_drop_flag</span>]</span>
 <span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>StackDSTA</span><span class='op'>&lt;</span><span class='ident'>T</span>: ?<span class='ident'>Sized</span>, <span class='ident'>D</span>: <span class='ident'>DataBuf</span><span class='op'>&gt;</span> {
 	<span class='comment'>// Force alignment to be 8 bytes (for types that contain u64s)</span>
 	<span class='ident'>_align</span>: [<span class='ident'>u64</span>; <span class='number'>0</span>],
@@ -390,7 +398,9 @@
 <span class='kw'>impl</span><span class='op'>&lt;</span><span class='ident'>T</span>: ?<span class='ident'>Sized</span>, <span class='ident'>D</span>: <span class='ident'>DataBuf</span><span class='op'>&gt;</span> <span class='ident'>ops</span>::<span class='ident'>Drop</span> <span class='kw'>for</span> <span class='ident'>StackDSTA</span><span class='op'>&lt;</span><span class='ident'>T</span>, <span class='ident'>D</span><span class='op'>&gt;</span> {
 	<span class='kw'>fn</span> <span class='ident'>drop</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) {
 		<span class='kw'>unsafe</span> {
-			<span class='ident'>ptr</span>::<span class='ident'>drop_in_place</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='op'>*</span><span class='op'>*</span><span class='self'>self</span>)
+			<span class='kw'>if</span> <span class='self'>self</span>.<span class='ident'>data</span>.<span class='ident'>as_ref</span>()[ <span class='self'>self</span>.<span class='ident'>data</span>.<span class='ident'>as_ref</span>().<span class='ident'>len</span>()<span class='op'>-</span><span class='number'>1</span> ] <span class='op'>!=</span> <span class='ident'>mem</span>::<span class='ident'>dropped</span>::<span class='op'>&lt;</span><span class='ident'>usize</span><span class='op'>&gt;</span>() {
+				<span class='ident'>ptr</span>::<span class='ident'>drop_in_place</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='op'>*</span><span class='op'>*</span><span class='self'>self</span>)
+			}
 		}
 	}
 }

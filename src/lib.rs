@@ -29,24 +29,26 @@
 //! assert_eq!( (&mut *closure)(), "Hello there! value=666" );
 //! ```
 #![feature(unsize,drop_in_place)]	// needed for intrinsics, raw, and Unsize
-#![cfg_attr(no_std,feature(no_std,core_slice_ext))]
-#![cfg_attr(no_std,no_std)]
+#![feature(unsafe_no_drop_flag,filling_drop)]	// Reduce overheads
+
+#![cfg_attr(feature="no_std",no_std)]
 #![crate_type="lib"]
 #![crate_name="stack_dst"]
 #![deny(missing_docs)]
 
-#[cfg(not(no_std))]
 use std::{ops,mem,slice,marker,ptr};
 
-#[cfg(no_std)]
-use core::{ops,mem,slice,marker,ptr};
+#[cfg(feature="no_std")]
+mod std {
+	pub use core::{ops,mem,slice,marker,ptr};
+}
 
 /// Trait used to represent the data buffer for StackDSTA.
 /// 
 /// Typically you'll passs a [usize; N] array
-pub trait DataBuf: Default+AsMut<[usize]>+AsRef<[usize]> {
+pub trait DataBuf: Copy+Default+AsMut<[usize]>+AsRef<[usize]> {
 }
-impl<T: Default+AsMut<[usize]>+AsRef<[usize]>> DataBuf for T {
+impl<T: Copy+Default+AsMut<[usize]>+AsRef<[usize]>> DataBuf for T {
 }
 
 /// 8 data words, plus one metadata
@@ -59,6 +61,7 @@ pub type StackDST<T/*: ?Sized*/> = StackDSTA<T, [usize; DEFAULT_SIZE]>;
 ///
 /// `T` is the unsized type contaned.
 /// `D` is the buffer used to hold the unsized type (both data and metadata).
+#[unsafe_no_drop_flag]
 pub struct StackDSTA<T: ?Sized, D: DataBuf> {
 	// Force alignment to be 8 bytes (for types that contain u64s)
 	_align: [u64; 0],
@@ -170,7 +173,9 @@ impl<T: ?Sized, D: DataBuf> ops::DerefMut for StackDSTA<T, D> {
 impl<T: ?Sized, D: DataBuf> ops::Drop for StackDSTA<T, D> {
 	fn drop(&mut self) {
 		unsafe {
-			ptr::drop_in_place(&mut **self)
+			if self.data.as_ref()[ self.data.as_ref().len()-1 ] != mem::dropped::<usize>() {
+				ptr::drop_in_place(&mut **self)
+			}
 		}
 	}
 }
