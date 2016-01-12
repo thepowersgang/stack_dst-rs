@@ -7,5 +7,5 @@ repository = "https://github.com/thepowersgang/stack_dst-rs"
 documentation = "http://thepowersgang.github.io/stack_dst-rs/target/doc/stack_dst/"
 readme = "README.md"
 keywords = ["nightly", "stack", "dst"]
-license = "MIT"
+license = "MIT OR Apache-2.0"
 
