@@ -253,7 +253,7 @@
 <span class='doccomment'>//! let mut closure = make_closure(666);</span>
 <span class='doccomment'>//! assert_eq!( (&amp;mut *closure)(), &quot;Hello there! value=666&quot; );</span>
 <span class='doccomment'>//! ```</span>
-<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>feature</span>(<span class='ident'>unsize</span>,<span class='ident'>drop_in_place</span>)]</span>	<span class='comment'>// needed for intrinsics, raw, and Unsize</span>
+<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>feature</span>(<span class='ident'>unsize</span>)]</span>	<span class='comment'>// needed for Unsize</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>feature</span>(<span class='ident'>unsafe_no_drop_flag</span>,<span class='ident'>filling_drop</span>)]</span>	<span class='comment'>// Reduce overheads</span>
 
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>cfg_attr</span>(<span class='ident'>feature</span><span class='op'>=</span><span class='string'>&quot;no_std&quot;</span>,<span class='ident'>no_std</span>)]</span>

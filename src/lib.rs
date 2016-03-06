@@ -28,7 +28,7 @@
 //! let mut closure = make_closure(666);
 //! assert_eq!( (&mut *closure)(), "Hello there! value=666" );
 //! ```
-#![feature(unsize,drop_in_place)]	// needed for intrinsics, raw, and Unsize
+#![feature(unsize)]	// needed for Unsize
 #![feature(unsafe_no_drop_flag,filling_drop)]	// Reduce overheads
 
 #![cfg_attr(feature="no_std",no_std)]
