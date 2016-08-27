@@ -29,7 +29,6 @@
 //! assert_eq!( (&mut *closure)(), "Hello there! value=666" );
 //! ```
 #![feature(unsize)]	// needed for Unsize
-#![feature(unsafe_no_drop_flag,filling_drop)]	// Reduce overheads
 
 #![cfg_attr(feature="no_std",no_std)]
 #![crate_type="lib"]
@@ -61,7 +60,6 @@ pub type StackDST<T/*: ?Sized*/> = StackDSTA<T, [usize; DEFAULT_SIZE]>;
 ///
 /// `T` is the unsized type contaned.
 /// `D` is the buffer used to hold the unsized type (both data and metadata).
-#[unsafe_no_drop_flag]
 pub struct StackDSTA<T: ?Sized, D: DataBuf> {
 	// Force alignment to be 8 bytes (for types that contain u64s)
 	_align: [u64; 0],
@@ -173,9 +171,7 @@ impl<T: ?Sized, D: DataBuf> ops::DerefMut for StackDSTA<T, D> {
 impl<T: ?Sized, D: DataBuf> ops::Drop for StackDSTA<T, D> {
 	fn drop(&mut self) {
 		unsafe {
-			if self.data.as_ref()[ self.data.as_ref().len()-1 ] != mem::dropped::<usize>() {
-				ptr::drop_in_place(&mut **self)
-			}
+			ptr::drop_in_place(&mut **self)
 		}
 	}
 }
