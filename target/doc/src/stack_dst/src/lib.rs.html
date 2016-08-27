@@ -219,10 +219,6 @@
 <span id="175">175</span>
 <span id="176">176</span>
 <span id="177">177</span>
-<span id="178">178</span>
-<span id="179">179</span>
-<span id="180">180</span>
-<span id="181">181</span>
 </pre><pre class='rust '>
 <span class='doccomment'>//! Stack-based Dynamically-Sized Types</span>
 <span class='doccomment'>//!</span>
@@ -255,7 +251,6 @@
 <span class='doccomment'>//! assert_eq!( (&amp;mut *closure)(), &quot;Hello there! value=666&quot; );</span>
 <span class='doccomment'>//! ```</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>feature</span>(<span class='ident'>unsize</span>)]</span>	<span class='comment'>// needed for Unsize</span>
-<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>feature</span>(<span class='ident'>unsafe_no_drop_flag</span>,<span class='ident'>filling_drop</span>)]</span>	<span class='comment'>// Reduce overheads</span>
 
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>cfg_attr</span>(<span class='ident'>feature</span><span class='op'>=</span><span class='string'>&quot;no_std&quot;</span>,<span class='ident'>no_std</span>)]</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>crate_type</span><span class='op'>=</span><span class='string'>&quot;lib&quot;</span>]</span>
@@ -287,7 +282,6 @@
 <span class='doccomment'>///</span>
 <span class='doccomment'>/// `T` is the unsized type contaned.</span>
 <span class='doccomment'>/// `D` is the buffer used to hold the unsized type (both data and metadata).</span>
-<span class='attribute'>#[<span class='ident'>unsafe_no_drop_flag</span>]</span>
 <span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>StackDSTA</span><span class='op'>&lt;</span><span class='ident'>T</span>: ?<span class='ident'>Sized</span>, <span class='ident'>D</span>: <span class='ident'>DataBuf</span><span class='op'>&gt;</span> {
 	<span class='comment'>// Force alignment to be 8 bytes (for types that contain u64s)</span>
 	<span class='ident'>_align</span>: [<span class='ident'>u64</span>; <span class='number'>0</span>],
@@ -399,9 +393,7 @@
 <span class='kw'>impl</span><span class='op'>&lt;</span><span class='ident'>T</span>: ?<span class='ident'>Sized</span>, <span class='ident'>D</span>: <span class='ident'>DataBuf</span><span class='op'>&gt;</span> <span class='ident'>ops</span>::<span class='ident'>Drop</span> <span class='kw'>for</span> <span class='ident'>StackDSTA</span><span class='op'>&lt;</span><span class='ident'>T</span>, <span class='ident'>D</span><span class='op'>&gt;</span> {
 	<span class='kw'>fn</span> <span class='ident'>drop</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) {
 		<span class='kw'>unsafe</span> {
-			<span class='kw'>if</span> <span class='self'>self</span>.<span class='ident'>data</span>.<span class='ident'>as_ref</span>()[ <span class='self'>self</span>.<span class='ident'>data</span>.<span class='ident'>as_ref</span>().<span class='ident'>len</span>()<span class='op'>-</span><span class='number'>1</span> ] <span class='op'>!=</span> <span class='ident'>mem</span>::<span class='ident'>dropped</span>::<span class='op'>&lt;</span><span class='ident'>usize</span><span class='op'>&gt;</span>() {
-				<span class='ident'>ptr</span>::<span class='ident'>drop_in_place</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='op'>*</span><span class='op'>*</span><span class='self'>self</span>)
-			}
+			<span class='ident'>ptr</span>::<span class='ident'>drop_in_place</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='op'>*</span><span class='op'>*</span><span class='self'>self</span>)
 		}
 	}
 }
