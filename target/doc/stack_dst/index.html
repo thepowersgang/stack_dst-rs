@@ -63,7 +63,7 @@ or array can be stored, without resorting to a heap allocation.</p>
 
 <span class='kw'>let</span> <span class='ident'>dst</span> <span class='op'>=</span> <span class='ident'>StackDST</span>::<span class='op'>&lt;</span><span class='ident'>Any</span><span class='op'>&gt;</span>::<span class='ident'>new</span>(<span class='number'>1234u64</span>).<span class='ident'>ok</span>().<span class='ident'>expect</span>(<span class='string'>&quot;Integer did not fit in allocation&quot;</span>);
 <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;dst as u64 = {:?}&quot;</span>, <span class='ident'>dst</span>.<span class='ident'>downcast_ref</span>::<span class='op'>&lt;</span><span class='ident'>u64</span><span class='op'>&gt;</span>());
-<span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;dst as i8 = {:?}&quot;</span>, <span class='ident'>dst</span>.<span class='ident'>downcast_ref</span>::<span class='op'>&lt;</span><span class='ident'>i8</span><span class='op'>&gt;</span>());<a class='test-arrow' target='_blank' href=''>Run</a></pre>
+<span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;dst as i8 = {:?}&quot;</span>, <span class='ident'>dst</span>.<span class='ident'>downcast_ref</span>::<span class='op'>&lt;</span><span class='ident'>i8</span><span class='op'>&gt;</span>());</pre>
 
 <h2 id='stack-allocated-closure' class='section-header'><a href='#stack-allocated-closure'>Stack-allocated closure!</a></h2>
 <p>The following snippet shows how small (<code>&#39;static</code>) closures can be returned using StackDST</p>
@@ -75,7 +75,7 @@ or array can be stored, without resorting to a heap allocation.</p>
     <span class='ident'>StackDST</span>::<span class='ident'>new</span>(<span class='kw'>move</span> <span class='op'>||</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;Hello there! value={}&quot;</span>, <span class='ident'>value</span>)).<span class='ident'>ok</span>().<span class='ident'>expect</span>(<span class='string'>&quot;Closure doesn&#39;t fit&quot;</span>)
 }
 <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>closure</span> <span class='op'>=</span> <span class='ident'>make_closure</span>(<span class='number'>666</span>);
-<span class='macro'>assert_eq</span><span class='macro'>!</span>( (<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='op'>*</span><span class='ident'>closure</span>)(), <span class='string'>&quot;Hello there! value=666&quot;</span> );<a class='test-arrow' target='_blank' href=''>Run</a></pre>
+<span class='macro'>assert_eq</span><span class='macro'>!</span>( (<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='op'>*</span><span class='ident'>closure</span>)(), <span class='string'>&quot;Hello there! value=666&quot;</span> );</pre>
 </div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
 <table>
                        <tr class=' module-item'>
@@ -164,11 +164,9 @@ or array can be stored, without resorting to a heap allocation.</p>
     <script>
         window.rootPath = "../";
         window.currentCrate = "stack_dst";
-        window.playgroundUrl = "";
     </script>
     <script src="../jquery.js"></script>
     <script src="../main.js"></script>
-    <script src="../extra.js"></script>
     <script defer src="../search-index.js"></script>
 </body>
 </html>
