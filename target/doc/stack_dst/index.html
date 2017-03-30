@@ -49,15 +49,7 @@
                        [<span class='inner'>&#x2212;</span>]
                    </a>
                </span><a class='srclink' href='../src/stack_dst/lib.rs.html#1-177' title='goto source code'>[src]</a></span></h1>
-<div class='docblock'><p>Stack-based Dynamically-Sized Types</p>
-
-<p>The <code>StackDST</code> type provides a fixed size (7 word in the current version) buffer in which a trait object
-or array can be stored, without resorting to a heap allocation.</p>
-
-<h1 id='examples' class='section-header'><a href='#examples'>Examples</a></h1>
-<h2 id='an-unboxed-any' class='section-header'><a href='#an-unboxed-any'>An unboxed any</a></h2>
-<p>As a quick example - The following wraps a 64-bit integer up in a StackDST using the Any trait.</p>
-
+<div class='docblock'><p>Stack-based Dynamically-Sized Types</p><p>The <code>StackDST</code> type provides a fixed size (7 word in the current version) buffer in which a trait object or array can be stored, without resorting to a heap allocation.</p><h1 id="examples" class="section-header"><a href="#examples">Examples</a></h1><h2 id="an-unboxed-any" class="section-header"><a href="#an-unboxed-any">An unboxed any</a></h2><p>As a quick example - The following wraps a 64-bit integer up in a StackDST using the Any trait.</p>
 <pre class="rust rust-example-rendered">
 <span class="kw">use</span> <span class="ident">stack_dst</span>::<span class="ident">StackDST</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span>;
@@ -65,10 +57,7 @@ or array can be stored, without resorting to a heap allocation.</p>
 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">StackDST</span>::<span class="op">&lt;</span><span class="ident">Any</span><span class="op">&gt;</span>::<span class="ident">new</span>(<span class="number">1234u64</span>).<span class="ident">ok</span>().<span class="ident">expect</span>(<span class="string">&quot;Integer did not fit in allocation&quot;</span>);
 <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;dst as u64 = {:?}&quot;</span>, <span class="ident">dst</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>());
 <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;dst as i8 = {:?}&quot;</span>, <span class="ident">dst</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">i8</span><span class="op">&gt;</span>());</pre>
-
-<h2 id='stack-allocated-closure' class='section-header'><a href='#stack-allocated-closure'>Stack-allocated closure!</a></h2>
-<p>The following snippet shows how small (<code>&#39;static</code>) closures can be returned using StackDST</p>
-
+<h2 id="stack-allocated-closure" class="section-header"><a href="#stack-allocated-closure">Stack-allocated closure!</a></h2><p>The following snippet shows how small (<code>&#39;static</code>) closures can be returned using StackDST</p>
 <pre class="rust rust-example-rendered">
 <span class="kw">use</span> <span class="ident">stack_dst</span>::<span class="ident">StackDST</span>;
  
