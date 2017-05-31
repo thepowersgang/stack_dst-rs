@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="API documentation for the Rust `DEFAULT_SIZE` constant in crate `stack_dst`.">
-    <meta name="keywords" content="rust, rustlang, rust-lang, DEFAULT_SIZE">
+    <meta name="description" content="API documentation for the Rust `Value` type in crate `stack_dst`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Value">
 
-    <title>stack_dst::DEFAULT_SIZE - Rust</title>
+    <title>stack_dst::Value - Rust</title>
 
     <link rel="stylesheet" type="text/css" href="../normalize.css">
     <link rel="stylesheet" type="text/css" href="../rustdoc.css">
@@ -17,7 +17,7 @@
     
     
 </head>
-<body class="rustdoc constant">
+<body class="rustdoc type">
     <!--[if lte IE 8]>
     <div class="warning">
         This old browser is unsupported and will most likely display funky
@@ -29,7 +29,7 @@
 
     <nav class="sidebar">
         
-        <p class='location'><a href='index.html'>stack_dst</a></p><script>window.sidebarCurrent = {name: 'DEFAULT_SIZE', ty: 'constant', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+        <p class='location'><a href='index.html'>stack_dst</a></p><script>window.sidebarCurrent = {name: 'Value', ty: 'type', relpath: ''};</script><script defer src="sidebar-items.js"></script>
     </nav>
 
     <nav class="sub">
@@ -44,12 +44,12 @@
     </nav>
 
     <section id='main' class="content">
-<h1 class='fqn'><span class='in-band'>Constant <a href='index.html'>stack_dst</a>::<wbr><a class="constant" href=''>DEFAULT_SIZE</a></span><span class='out-of-band'><span id='render-detail'>
+<h1 class='fqn'><span class='in-band'>Type Definition <a href='index.html'>stack_dst</a>::<wbr><a class="type" href=''>Value</a></span><span class='out-of-band'><span id='render-detail'>
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../src/stack_dst/lib.rs.html#54' title='goto source code'>[src]</a></span></h1>
-<pre class='rust const'>pub const DEFAULT_SIZE: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a><code> = </code><code>8 + 1</code></pre><div class='docblock'><p>8 data words, plus one metadata</p>
+               </span><a class='srclink' href='../src/stack_dst/value.rs.html#12' title='goto source code'>[src]</a></span></h1>
+<pre class='rust typedef'>type Value&lt;T&gt; = <a class="struct" href="../stack_dst/struct.ValueA.html" title="struct stack_dst::ValueA">ValueA</a>&lt;T, <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 9]</a>&gt;;</pre><div class='docblock'><p>Stack-allocated DST (using a default size)</p>
 </div></section>
     <section id='search' class="content hidden"></section>
 

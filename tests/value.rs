@@ -1,7 +1,7 @@
 
 extern crate stack_dst;
 
-use stack_dst::StackDST;
+use stack_dst::Value as StackDST;
 
 #[test]
 // A trivial check that ensures that methods are correctly called
