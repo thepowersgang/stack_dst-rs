@@ -3,6 +3,13 @@
 //!
 use std::{mem,marker,ptr,ops};
 
+// Implementation Notes
+// -----
+//
+// The data array is filled from the back, with the metadata stored before (at a lower memory address)
+// the actual data. This so the code can use a single integer to track the position (using size_of_val
+// when popping items, and the known size when pushing).
+
 /// A fixed-capacity stack that can contain dynamically-sized types
 ///
 /// Uses an array of usize as a backing store for a First-In, Last-Out stack
@@ -12,8 +19,10 @@ use std::{mem,marker,ptr,ops};
 pub struct StackA<T: ?Sized, D: ::DataBuf>
 {
 	_pd: marker::PhantomData<*const T>,
-	next_ofs: usize,
-	data: D,	// 1KB/512B
+	// Offset from the _back_ of `data` to the next free position.
+	// I.e. data[data.len() - cur_ofs] is the first metadata word
+	cur_ofs: usize,
+	data: D,
 }
 
 impl<T: ?Sized, D: ::DataBuf> ops::Drop for StackA<T,D>
@@ -45,6 +54,38 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T,D>
 		self.next_ofs == 0
 	}
 
+	fn meta_words() -> usize
+	{
+		mem::size_of::<&T>() / mem::size_of::<usize>() - 1
+	}
+	fn push_inner(&mut self, fat_ptr: &T) -> Result<&mut [usize], ()>
+	{
+		let bytes = mem::size_of_val(fat_ptr);
+		let words = round_to_words(bytes) + Self::meta_words();
+		// Check if there is sufficient space for the new item
+		if self.next_ofs + words <= self.data.as_ref().len()
+		{
+			// Get the base pointer for the new item
+			self.next_ofs += words;
+			let len = self.data.as_ref().len();
+			let slot = &mut self.data.as_mut()[len - self.next_ofs..][..words];
+			let (meta, rv) = slot.split_at_mut(Self::meta_words());
+
+			// Populate the metadata
+			let mut ptr_raw: *const T = fat_ptr;
+			let ptr_words = ::ptr_as_slice(&mut ptr_raw);
+			assert_eq!(ptr_words.len(), 1 + Self::meta_words());
+			meta.clone_from_slice( &ptr_words[1..] );
+
+			// Increment offset and return
+			Ok( rv )
+		}
+		else
+		{
+			Err( () )
+		}
+	}
+
 	/// Push a value at the top of the stack
 	pub fn push<U: marker::Unsize<T>>(&mut self, v: U) -> Result<(), U>
 	{
@@ -52,35 +93,18 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T,D>
 		assert!(mem::align_of::<U>() <= mem::align_of::<Self>(), "TODO: Enforce alignment >{} (requires {})",
 			mem::align_of::<Self>(), mem::align_of::<U>());
 
-		let words = round_to_words( mem::size_of::<U>() );
-		if self.next_ofs + words + 1 <= self.data.as_ref().len()
+		match self.push_inner(&v)
 		{
-			let meta = get_meta_usize(&v as &T);
-			if words > 0
-			{
-				self.data.as_mut()[self.next_ofs + words-1] = 0;
-				unsafe { 
-					ptr::write( &mut self.data.as_mut()[self.next_ofs] as *mut _ as *mut U, v );
-				}
-			}
-			self.data.as_mut()[self.next_ofs+words] = meta;
-			self.next_ofs += words+1;
+		Ok(d) => {
+			// SAFE: Destination address is valid
+			unsafe { ptr::write( &mut d[0] as *mut _ as *mut U, v ); }
 			Ok( () )
-		}
-		else
-		{
-			Err(v)
+			},
+		Err(_) => Err(v),
 		}
 	}
 
-	fn top_item_size_words(&self) -> usize {
-		assert!(self.next_ofs != 0);
-		
-		// TODO: Is this safe? It shouldn't access the data, right?
-		let size_bytes = mem::size_of_val( unsafe { &*make_fat_ptr::<T>(1, self.data.as_ref()[self.next_ofs - 1]) } );
-		round_to_words(size_bytes)
-	}
-
+	// Get a raw pointer to the top of the stack
 	fn top_raw(&self) -> Option<*mut T>
 	{
 		if self.next_ofs == 0
@@ -89,10 +113,11 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T,D>
 		}
 		else
 		{
-			let size = self.top_item_size_words();
+			let len = self.data.as_ref().len();
+			let meta = &self.data.as_ref()[len - self.next_ofs..];
 			Some( make_fat_ptr( 
-				&self.data.as_ref()[self.next_ofs - 1 - size] as *const _ as usize,
-				self.data.as_ref()[self.next_ofs - 1]
+				&meta[Self::meta_words()] as *const _ as usize,
+				&meta[..Self::meta_words()]
 				) )
 		}
 	}
@@ -113,8 +138,11 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T,D>
 		{
 			assert!(self.next_ofs > 0);
 			// SAFE: Pointer is valid, and will never be accessed after this point
-			unsafe { ptr::drop_in_place(ptr); }
-			let words = self.top_item_size_words();
+			let words = unsafe {
+				let size = mem::size_of_val(&*ptr);
+				ptr::drop_in_place(ptr);
+				round_to_words(size)
+				};
 			self.next_ofs -= words+1;
 		}
 	}
@@ -125,24 +153,15 @@ impl<D: ::DataBuf> StackA<str,D>
 	/// Push the contents of a string slice as an item onto the stack
 	pub fn push_str(&mut self, v: &str) -> Result<(),()>
 	{
-		let words = round_to_words( v.len() );
-		if self.next_ofs + words + 1 <= self.data.as_ref().len()
+		match self.push_inner(v)
 		{
-			let meta = v.len();
-			if words > 0
-			{
-				self.data.as_mut()[self.next_ofs + words-1] = 0;
-				unsafe { 
-					ptr::copy( v.as_bytes().as_ptr(), &mut self.data.as_mut()[self.next_ofs] as *mut _ as *mut u8, v.len() );
-				}
+		Ok(d) => {
+			unsafe { 
+				ptr::copy( v.as_bytes().as_ptr(), &mut d[0] as *mut _ as *mut u8, v.len() );
 			}
-			self.data.as_mut()[self.next_ofs+words] = meta;
-			self.next_ofs += words+1;
 			Ok( () )
-		}
-		else
-		{
-			Err( () )
+			},
+		Err(_) => Err( () ),
 		}
 	}
 }
@@ -151,46 +170,26 @@ impl<D: ::DataBuf, T: Clone> StackA<[T],D>
 	/// Pushes a set of items (cloning out of the input slice)
 	pub fn push_cloned(&mut self, v: &[T]) -> Result<(),()>
 	{
-		let words = round_to_words( mem::size_of_val(v) );
-		if self.next_ofs + words + 1 <= self.data.as_ref().len()
+		match self.push_inner(&v)
 		{
-			let meta = v.len();
-			if words > 0
+		Ok(d) => {
+			unsafe
 			{
-				self.data.as_mut()[self.next_ofs + words-1] = 0;
-				let mut ptr = &mut self.data.as_mut()[self.next_ofs] as *mut _ as *mut T;
+				let mut ptr = &mut d[0] as *mut _ as *mut T;
 				for val in v
 				{
-					unsafe {
-						ptr::write(ptr, val.clone());
-						ptr = ptr.offset(1);
-					}
+					ptr::write(ptr, val.clone());
+					ptr = ptr.offset(1);
 				}
 			}
-			self.data.as_mut()[self.next_ofs+words] = meta;
-			self.next_ofs += words+1;
 			Ok( () )
-		}
-		else
-		{
-			Err( () )
+			},
+		Err(_) => Err( () ),
 		}
 	}
 }
 
-/// Obtains the metadata for the given fat pointer as a usize
-///
-/// Asserts if the pointer isn't a two-word pointer, or if the layout isn't (data, meta)
-fn get_meta_usize<T: ?Sized>(mut p: *const T) -> usize
-{
-	let p_data = p as *const ();
-	let s = unsafe { super::ptr_as_slice(&mut p) };
-	assert_eq!( s.len(), 2 );
-	assert_eq!( p_data as usize, s[0], "Fat pointer layout not as expected, first word isn't the data pointer" );
-	s[1]
-}
-
-fn make_fat_ptr<T: ?Sized>(data_ptr: usize, meta_val: usize) -> *mut T {
+fn make_fat_ptr<T: ?Sized>(data_ptr: usize, meta_vals: &[usize]) -> *mut T {
 	// SAFE: Nothing glaring
 	unsafe
 	{
@@ -198,7 +197,7 @@ fn make_fat_ptr<T: ?Sized>(data_ptr: usize, meta_val: usize) -> *mut T {
 		{
 			let s = super::ptr_as_slice(&mut rv);
 			s[0] = data_ptr;
-			s[1] = meta_val;
+			s[1..].copy_from_slice(meta_vals);
 		}
 		assert_eq!(rv as *const (), data_ptr as *const ());
 		rv as *mut T

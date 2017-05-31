@@ -58,8 +58,11 @@ mod value;
 mod stack;
 
 /// Obtain mutable access to a pointer's words
-unsafe fn ptr_as_slice<T: ?Sized>(ptr: &mut *const T) -> &mut [usize] {
+fn ptr_as_slice<T: ?Sized>(ptr: &mut *const T) -> &mut [usize] {
 	assert!( mem::size_of::<&T>() % mem::size_of::<usize>() == 0 );
 	let words = mem::size_of::<&T>() / mem::size_of::<usize>();
-	slice::from_raw_parts_mut(ptr as *mut _ as *mut usize, words)
+	// SAFE: Points to valid memory (a raw pointer)
+	unsafe {
+		slice::from_raw_parts_mut(ptr as *mut _ as *mut usize, words)
+	}
 }

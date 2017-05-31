@@ -29,6 +29,10 @@ fn strings()
 	assert_eq!( stack.top(), Some("Hello") ); stack.pop();
 	assert_eq!( stack.top(), Some(" ") );     stack.pop();
 	assert_eq!( stack.top(), Some("World") ); stack.pop();
+	stack.push_str("World").unwrap();
+	stack.push_str("Cruel").unwrap();
+	assert_eq!( stack.top(), Some("Cruel") ); stack.pop();
+	assert_eq!( stack.top(), Some("World") ); stack.pop();
 	assert_eq!( stack.top(), Some("\n") );    stack.pop();
 	assert_eq!( stack.top(), None );
 }
