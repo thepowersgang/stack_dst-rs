@@ -29,7 +29,7 @@ impl<T: ?Sized, D: ::DataBuf> ops::Drop for StackA<T,D>
 {
 	fn drop(&mut self)
 	{
-		while ! self.empty()
+		while ! self.is_empty()
 		{
 			self.pop();
 		}
@@ -49,7 +49,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T,D>
 	}
 
 	/// Tests if the stack is empty
-	pub fn empty(&self) -> bool
+	pub fn is_empty(&self) -> bool
 	{
 		self.next_ofs == 0
 	}
@@ -97,7 +97,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T,D>
 		{
 		Ok(d) => {
 			// SAFE: Destination address is valid
-			unsafe { ptr::write( &mut d[0] as *mut _ as *mut U, v ); }
+			unsafe { ptr::write( d.as_mut_ptr() as *mut U, v ); }
 			Ok( () )
 			},
 		Err(_) => Err(v),
@@ -116,7 +116,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T,D>
 			let len = self.data.as_ref().len();
 			let meta = &self.data.as_ref()[len - self.next_ofs..];
 			Some( make_fat_ptr( 
-				&meta[Self::meta_words()] as *const _ as usize,
+				meta[Self::meta_words()..].as_ptr() as usize,
 				&meta[..Self::meta_words()]
 				) )
 		}
@@ -157,7 +157,7 @@ impl<D: ::DataBuf> StackA<str,D>
 		{
 		Ok(d) => {
 			unsafe { 
-				ptr::copy( v.as_bytes().as_ptr(), &mut d[0] as *mut _ as *mut u8, v.len() );
+				ptr::copy( v.as_bytes().as_ptr(), d.as_mut_ptr() as *mut u8, v.len() );
 			}
 			Ok( () )
 			},
@@ -175,7 +175,7 @@ impl<D: ::DataBuf, T: Clone> StackA<[T],D>
 		Ok(d) => {
 			unsafe
 			{
-				let mut ptr = &mut d[0] as *mut _ as *mut T;
+				let mut ptr = d.as_mut_ptr() as *mut T;
 				for val in v
 				{
 					ptr::write(ptr, val.clone());
