@@ -21,7 +21,7 @@ pub struct StackA<T: ?Sized, D: ::DataBuf>
 	_pd: marker::PhantomData<*const T>,
 	// Offset from the _back_ of `data` to the next free position.
 	// I.e. data[data.len() - cur_ofs] is the first metadata word
-	cur_ofs: usize,
+	next_ofs: usize,
 	data: D,
 }
 
