@@ -35,6 +35,11 @@ impl<T: ?Sized, D: ::DataBuf> ops::Drop for StackA<T,D>
 		}
 	}
 }
+impl<T: ?Sized, D: ::DataBuf> Default for StackA<T,D> {
+	fn default() -> Self {
+		StackA::new()
+	}
+}
 
 impl<T: ?Sized, D: ::DataBuf> StackA<T,D>
 {
