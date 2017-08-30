@@ -144,12 +144,12 @@
 <span class="doccomment">//! assert_eq!( (&amp;mut *closure)(), &quot;Hello there! value=666&quot; );</span>
 <span class="doccomment">//! # }</span>
 <span class="doccomment">//! ```</span>
-<span class="attribute">#<span class="op">!</span>[<span class="ident">feature</span>(<span class="ident">unsize</span>)]</span>	<span class="comment">// needed for Unsize</span>
+<span class="attribute">#![<span class="ident">feature</span>(<span class="ident">unsize</span>)]</span>	<span class="comment">// needed for Unsize</span>
 
-<span class="attribute">#<span class="op">!</span>[<span class="ident">cfg_attr</span>(<span class="ident">feature</span><span class="op">=</span><span class="string">&quot;no_std&quot;</span>,<span class="ident">no_std</span>)]</span>
-<span class="attribute">#<span class="op">!</span>[<span class="ident">crate_type</span><span class="op">=</span><span class="string">&quot;lib&quot;</span>]</span>
-<span class="attribute">#<span class="op">!</span>[<span class="ident">crate_name</span><span class="op">=</span><span class="string">&quot;stack_dst&quot;</span>]</span>
-<span class="attribute">#<span class="op">!</span>[<span class="ident">deny</span>(<span class="ident">missing_docs</span>)]</span>
+<span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">feature</span><span class="op">=</span><span class="string">&quot;no_std&quot;</span>,<span class="ident">no_std</span>)]</span>
+<span class="attribute">#![<span class="ident">crate_type</span><span class="op">=</span><span class="string">&quot;lib&quot;</span>]</span>
+<span class="attribute">#![<span class="ident">crate_name</span><span class="op">=</span><span class="string">&quot;stack_dst&quot;</span>]</span>
+<span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>)]</span>
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">mem</span>,<span class="ident">slice</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span><span class="op">=</span><span class="string">&quot;no_std&quot;</span>)]</span>
