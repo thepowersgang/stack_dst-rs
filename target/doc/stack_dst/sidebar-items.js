@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["StackA","A fixed-capacity stack that can contain dynamically-sized types"],["ValueA","Stack-allocated dynamically sized type"]],"trait":[["DataBuf","Trait used to represent the data buffer for StackDSTA."]],"type":[["Value","Stack-allocated DST (using a default size)"]]});
