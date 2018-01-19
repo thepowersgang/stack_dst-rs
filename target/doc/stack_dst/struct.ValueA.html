@@ -51,7 +51,6 @@
                    </a>
                </span><a class='srclink' href='../src/stack_dst/value.rs.html#18-24' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct ValueA&lt;T:&nbsp;?<a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>, D:&nbsp;<a class="trait" href="../stack_dst/trait.DataBuf.html" title="trait stack_dst::DataBuf">DataBuf</a>&gt; { /* fields omitted */ }</pre><div class='docblock'><p>Stack-allocated dynamically sized type</p>
-
 <p><code>T</code> is the unsized type contaned.
 <code>D</code> is the buffer used to hold the unsized type (both data and metadata).</p>
 </div>
@@ -61,7 +60,6 @@
                 <h3 id='impl' class='impl'><span class='in-band'><code>impl&lt;T:&nbsp;?<a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>, D:&nbsp;<a class="trait" href="../stack_dst/trait.DataBuf.html" title="trait stack_dst::DataBuf">DataBuf</a>&gt; <a class="struct" href="../stack_dst/struct.ValueA.html" title="struct stack_dst::ValueA">ValueA</a>&lt;T, D&gt;</code><a href='#impl' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/stack_dst/value.rs.html#44-104' title='goto source code'>[src]</a></span></h3>
 <div class='impl-items'><h4 id='method.new' class="method"><span id='new.v' class='invisible'><code>pub fn <a href='#method.new' class='fnname'>new</a>&lt;U:&nbsp;<a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Unsize.html" title="trait core::marker::Unsize">Unsize</a>&lt;T&gt;&gt;(val: U) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../stack_dst/struct.ValueA.html" title="struct stack_dst::ValueA">ValueA</a>&lt;T, D&gt;, U&gt;</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/stack_dst/value.rs.html#49-71' title='goto source code'>[src]</a></span></h4>
 <div class='docblock'><p>Construct a stack-based DST</p>
-
 <p>Returns Ok(dst) if the allocation was successful, or Err(val) if it failed</p>
 </div></div>
             <h2 id='implementations' class='small-section-header'>
