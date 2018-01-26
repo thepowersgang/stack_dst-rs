@@ -12,10 +12,10 @@ themePicker.onclick = function() {
     }
 };
 ["dark","main"].forEach(function(item) {
-    var div = document.createElement('div');
-    div.innerHTML = item;
-    div.onclick = function(el) {
+    var but = document.createElement('button');
+    but.innerHTML = item;
+    but.onclick = function(el) {
         switchTheme(currentTheme, mainTheme, item);
     };
-    themes.appendChild(div);
+    themes.appendChild(but);
 });
