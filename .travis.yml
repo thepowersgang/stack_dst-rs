@@ -4,6 +4,7 @@ sudo: false
 script:
  - cargo build
  - cargo test
+ - cargo test --release
  - cargo doc
 after_success:
  - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash deploy.sh
