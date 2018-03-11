@@ -25,7 +25,7 @@ pub struct ValueA<T: ?Sized, D: ::DataBuf> {
 
 /// Obtain raw pointer given a Value reference
 unsafe fn as_ptr<T: ?Sized, D: ::DataBuf>(s: &ValueA<T, D>) -> *mut T {
-	let mut ret: *const T = mem::zeroed();
+	let mut ret: *const T = mem::uninitialized();
 	{
 		let ret_as_slice = super::ptr_as_slice(&mut ret);
 		let data = s.data.as_ref();

@@ -80,3 +80,11 @@ fn oversize()
 	assert!( StackDST::<Any>::new([0usize; MAX_SIZE_PTRS]).is_ok() );
 	assert!( StackDST::<Any>::new([0usize; MAX_SIZE_PTRS+1]).is_err() );
 }
+
+
+#[test]
+fn option()
+{
+	use std::any::Any;
+	assert!( Some(StackDST::<Any>::new("foo").unwrap()).is_some() );
+}
