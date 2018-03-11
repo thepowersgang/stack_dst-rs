@@ -198,7 +198,7 @@ fn make_fat_ptr<T: ?Sized>(data_ptr: usize, meta_vals: &[usize]) -> *mut T {
 	// SAFE: Nothing glaring
 	unsafe
 	{
-		let mut rv: *const T = mem::zeroed();
+		let mut rv: *const T = mem::uninitialized();
 		{
 			let s = super::ptr_as_slice(&mut rv);
 			s[0] = data_ptr;
