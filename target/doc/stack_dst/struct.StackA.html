@@ -14,7 +14,7 @@
           id="mainThemeStyle">
     
     <link rel="stylesheet" type="text/css" href="../dark.css">
-    <link rel="stylesheet" type="text/css" href="../main.css" id="themeStyle">
+    <link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle">
     <script src="../storage.js"></script>
     
 
@@ -55,13 +55,11 @@
         </form>
     </nav>
 
-    <section id='main' class="content">
-<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>stack_dst</a>::<wbr><a class="struct" href=''>StackA</a></span><span class='out-of-band'><span id='render-detail'>
+    <section id='main' class="content"><h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>stack_dst</a>::<wbr><a class="struct" href=''>StackA</a></span><span class='out-of-band'><span id='render-detail'>
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../src/stack_dst/stack.rs.html#19-26' title='goto source code'>[src]</a></span></h1>
-<pre class='rust struct'>pub struct StackA&lt;T:&nbsp;?<a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>, D:&nbsp;<a class="trait" href="../stack_dst/trait.DataBuf.html" title="trait stack_dst::DataBuf">DataBuf</a>&gt; { /* fields omitted */ }</pre><div class='docblock'><p>A fixed-capacity stack that can contain dynamically-sized types</p>
+               </span><a class='srclink' href='../src/stack_dst/stack.rs.html#19-26' title='goto source code'>[src]</a></span></h1><div class="docblock type-decl"><pre class='rust struct'>pub struct StackA&lt;T:&nbsp;?<a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>, D:&nbsp;<a class="trait" href="../stack_dst/trait.DataBuf.html" title="trait stack_dst::DataBuf">DataBuf</a>&gt; { /* fields omitted */ }</pre></div><div class='docblock'><p>A fixed-capacity stack that can contain dynamically-sized types</p>
 <p>Uses an array of usize as a backing store for a First-In, Last-Out stack
 of items that can unsize to <code>T</code>.</p>
 <p>Note: Each item in the stack takes at least one <code>usize</code> (to store the metadata)</p>
