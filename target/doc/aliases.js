@@ -1,2 +1,2 @@
 var ALIASES = {};
-ALIASES['stack_dst'] = {};
+ALIASES["stack_dst"] = {};
