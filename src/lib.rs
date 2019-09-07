@@ -32,13 +32,13 @@
 //! ```
 #![feature(unsize)]	// needed for Unsize
 
-#![cfg_attr(feature="no_std",no_std)]
+#![cfg_attr(not(feature="std"),no_std)]
 #![crate_type="lib"]
 #![crate_name="stack_dst"]
 #![deny(missing_docs)]
 use std::{mem,slice};
 
-#[cfg(feature="no_std")]
+#[cfg(not(feature="std"))]
 mod std {
 	pub use core::{ops,mem,slice,marker,ptr};
 }
