@@ -6,5 +6,4 @@ implementors["stack_dst"] = [];
             } else {
                 window.pending_implementors = implementors;
             }
-        
-})()
+        })()
