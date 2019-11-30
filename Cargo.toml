@@ -1,6 +1,6 @@
 [package]
 name = "stack_dst"
-version = "0.4.3"
+version = "0.5.0"
 authors = [ "John Hodge <tpg@mutabah.net>" ]
 description = "A wrapper that allows storage of unsized values of up to a fixed size on the stack (requires nighly currently, to drop unsized types)"
 repository = "https://github.com/thepowersgang/stack_dst-rs"

@@ -66,34 +66,51 @@
 <span id="66">66</span>
 <span id="67">67</span>
 <span id="68">68</span>
+<span id="69">69</span>
+<span id="70">70</span>
+<span id="71">71</span>
+<span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Support for storing dynamically-sized types on the stack</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! The `StackDST` type provides a fixed size (7 word in the current version) buffer in which a trait object</span>
+<span class="doccomment">//! The `Value` type provides a fixed size (7 word in the current version) buffer in which a trait object</span>
 <span class="doccomment">//! or array can be stored, without resorting to a heap allocation.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! # Examples</span>
 <span class="doccomment">//! ## An unboxed any</span>
-<span class="doccomment">//! As a quick example - The following wraps a 64-bit integer up in a StackDST using the Any trait.</span>
+<span class="doccomment">//! As a quick example - The following wraps a 64-bit integer up in an inline DST using the Any trait.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
 <span class="doccomment">//! use std::any::Any;</span>
-<span class="doccomment">//! type StackDST&lt;T&gt; = stack_dst::Value&lt;T&gt;;</span>
+<span class="doccomment">//! use stack_dst::Value;</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! let dst = StackDST::&lt;Any&gt;::new(1234u64).ok().expect(&quot;Integer did not fit in allocation&quot;);</span>
+<span class="doccomment">//! let dst = Value::&lt;dyn Any&gt;::new(1234u64).ok().expect(&quot;Integer did not fit in allocation&quot;);</span>
 <span class="doccomment">//! println!(&quot;dst as u64 = {:?}&quot;, dst.downcast_ref::&lt;u64&gt;());</span>
 <span class="doccomment">//! println!(&quot;dst as i8 = {:?}&quot;, dst.downcast_ref::&lt;i8&gt;());</span>
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//! </span>
 <span class="doccomment">//! ## Stack-allocated closure!</span>
-<span class="doccomment">//! The following snippet shows how small (`&#39;static`) closures can be returned using StackDST</span>
+<span class="doccomment">//! The following snippet shows how small (`&#39;static`) closures can be returned using this crate</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
 <span class="doccomment">//! # fn main() {</span>
-<span class="doccomment">//! type StackDST&lt;T&gt; = stack_dst::Value&lt;T&gt;;</span>
+<span class="doccomment">//! use stack_dst::Value;</span>
 <span class="doccomment">//! </span>
-<span class="doccomment">//! fn make_closure(value: u64) -&gt; StackDST&lt;FnMut()-&gt;String&gt; {</span>
-<span class="doccomment">//!     StackDST::new(move || format!(&quot;Hello there! value={}&quot;, value)).ok().expect(&quot;Closure doesn&#39;t fit&quot;)</span>
+<span class="doccomment">//! fn make_closure(value: u64) -&gt; Value&lt;dyn FnMut()-&gt;String&gt; {</span>
+<span class="doccomment">//!     Value::new(move || format!(&quot;Hello there! value={}&quot;, value))</span>
+<span class="doccomment">//!         .ok().expect(&quot;Closure doesn&#39;t fit&quot;)</span>
 <span class="doccomment">//! }</span>
 <span class="doccomment">//! let mut closure = make_closure(666);</span>
 <span class="doccomment">//! assert_eq!( (&amp;mut *closure)(), &quot;Hello there! value=666&quot; );</span>
@@ -112,9 +129,7 @@
 	<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">core</span>::{<span class="ident">ops</span>,<span class="ident">mem</span>,<span class="ident">slice</span>,<span class="ident">marker</span>,<span class="ident">ptr</span>};
 }
 
-<span class="doccomment">/// Trait used to represent the data buffer for StackDSTA.</span>
-<span class="doccomment">/// </span>
-<span class="doccomment">/// Typically you&#39;ll passs a [usize; N] array</span>
+<span class="doccomment">/// Trait used to represent a data buffer, typically you&#39;ll passs a `[usize; N]` array.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">DataBuf</span>: <span class="ident">Copy</span><span class="op">+</span><span class="ident">Default</span><span class="op">+</span><span class="ident">AsMut</span><span class="op">&lt;</span>[<span class="ident">usize</span>]<span class="op">&gt;</span><span class="op">+</span><span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">usize</span>]<span class="op">&gt;</span> {
 }
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span><span class="op">+</span><span class="ident">Default</span><span class="op">+</span><span class="ident">AsMut</span><span class="op">&lt;</span>[<span class="ident">usize</span>]<span class="op">&gt;</span><span class="op">+</span><span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">usize</span>]<span class="op">&gt;</span><span class="op">&gt;</span> <span class="ident">DataBuf</span> <span class="kw">for</span> <span class="ident">T</span> {
@@ -127,13 +142,30 @@
 <span class="kw">mod</span> <span class="ident">stack</span>;
 
 <span class="doccomment">/// Obtain mutable access to a pointer&#39;s words</span>
-<span class="kw">fn</span> <span class="ident">ptr_as_slice</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(<span class="ident">ptr</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">usize</span>] {
-	<span class="macro">assert</span><span class="macro">!</span>( <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">%</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="op">=</span><span class="op">=</span> <span class="number">0</span> );
-	<span class="kw">let</span> <span class="ident">words</span> <span class="op">=</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">/</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>();
+<span class="kw">fn</span> <span class="ident">ptr_as_slice</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">ptr</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">usize</span>] {
+	<span class="macro">assert</span><span class="macro">!</span>( <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">%</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="op">=</span><span class="op">=</span> <span class="number">0</span> );
+	<span class="kw">let</span> <span class="ident">words</span> <span class="op">=</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">/</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>();
 	<span class="comment">// SAFE: Points to valid memory (a raw pointer)</span>
 	<span class="kw">unsafe</span> {
 		<span class="ident">slice</span>::<span class="ident">from_raw_parts_mut</span>(<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">usize</span>, <span class="ident">words</span>)
 	}
+}
+
+<span class="doccomment">/// Re-construct a fat pointer</span>
+<span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">make_fat_ptr</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(<span class="ident">data_ptr</span>: <span class="ident">usize</span>, <span class="ident">meta_vals</span>: <span class="kw-2">&amp;</span>[<span class="ident">usize</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span> {
+	<span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rv</span> <span class="op">=</span> <span class="ident">mem</span>::<span class="ident">MaybeUninit</span>::<span class="op">&lt;</span><span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span><span class="op">&gt;</span>::<span class="ident">uninit</span>();
+	{
+		<span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">ptr_as_slice</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rv</span>);
+		<span class="ident">s</span>[<span class="number">0</span>] <span class="op">=</span> <span class="ident">data_ptr</span>;
+		<span class="ident">s</span>[<span class="number">1</span>..].<span class="ident">copy_from_slice</span>(<span class="ident">meta_vals</span>);
+	}
+	<span class="kw">let</span> <span class="ident">rv</span> <span class="op">=</span> <span class="ident">rv</span>.<span class="ident">assume_init</span>();
+	<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">rv</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> (), <span class="ident">data_ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> ());
+	<span class="ident">rv</span>
+}
+
+<span class="kw">fn</span> <span class="ident">round_to_words</span>(<span class="ident">len</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+	(<span class="ident">len</span> <span class="op">+</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>()<span class="op">-</span><span class="number">1</span>) <span class="op">/</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>()
 }
 </pre></div>
 </section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "stack_dst";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

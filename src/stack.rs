@@ -66,7 +66,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T,D>
 	fn push_inner(&mut self, fat_ptr: &T) -> Result<&mut [usize], ()>
 	{
 		let bytes = mem::size_of_val(fat_ptr);
-		let words = round_to_words(bytes) + Self::meta_words();
+		let words = super::round_to_words(bytes) + Self::meta_words();
 		// Check if there is sufficient space for the new item
 		if self.next_ofs + words <= self.data.as_ref().len()
 		{
@@ -120,10 +120,11 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T,D>
 		{
 			let len = self.data.as_ref().len();
 			let meta = &self.data.as_ref()[len - self.next_ofs..];
-			Some( make_fat_ptr( 
+			// SAFE: Internal consistency maintains the metadata validity
+			Some( unsafe { super::make_fat_ptr( 
 				meta[Self::meta_words()..].as_ptr() as usize,
 				&meta[..Self::meta_words()]
-				) )
+				) } )
 		}
 	}
 	/// Returns a pointer to the top item on the stack
@@ -146,7 +147,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T,D>
 			let words = unsafe {
 				let size = mem::size_of_val(&*ptr);
 				ptr::drop_in_place(ptr);
-				round_to_words(size)
+				super::round_to_words(size)
 				};
 			self.next_ofs -= words+1;
 		}
@@ -194,21 +195,3 @@ impl<D: ::DataBuf, T: Clone> StackA<[T],D>
 	}
 }
 
-fn make_fat_ptr<T: ?Sized>(data_ptr: usize, meta_vals: &[usize]) -> *mut T {
-	// SAFE: Nothing glaring
-	unsafe
-	{
-		let mut rv: *const T = mem::uninitialized();
-		{
-			let s = super::ptr_as_slice(&mut rv);
-			s[0] = data_ptr;
-			s[1..].copy_from_slice(meta_vals);
-		}
-		assert_eq!(rv as *const (), data_ptr as *const ());
-		rv as *mut T
-	}
-}
-
-fn round_to_words(len: usize) -> usize {
-	(len + mem::size_of::<usize>()-1) / mem::size_of::<usize>()
-}

@@ -7,7 +7,7 @@ use stack_dst::Value as StackDST;
 // A trivial check that ensures that methods are correctly called
 fn trivial_type()
 {
-	let val = StackDST::<PartialEq<u32>>::new( 1234u32 ).unwrap();
+	let val = StackDST::<dyn PartialEq<u32>>::new( 1234u32 ).unwrap();
 	assert!( *val == 1234 );
 	assert!( *val != 1233 );
 }
@@ -23,7 +23,7 @@ fn ensure_drop()
 	impl<'a> Drop for Struct<'a> { fn drop(&mut self) { self.0.set(true); } }
 	
 	let flag = Cell::new(false);
-	let val: StackDST<::std::fmt::Debug> = StackDST::new( Struct(&flag) ).unwrap();
+	let val: StackDST<dyn std::fmt::Debug> = StackDST::new( Struct(&flag) ).unwrap();
 	assert!(flag.get() == false);
 	drop(val);
 	assert!(flag.get() == true);
@@ -37,7 +37,7 @@ fn many_instances()
 	}
 	
 	#[inline(never)]
-	fn instance_one() -> StackDST<TestTrait> {
+	fn instance_one() -> StackDST<dyn TestTrait> {
 		#[derive(Debug)]
 		struct OneStruct(u32);
 		impl TestTrait for OneStruct {
@@ -47,7 +47,7 @@ fn many_instances()
 	}
 	
 	#[inline(never)]
-	fn instance_two() -> StackDST<TestTrait> {
+	fn instance_two() -> StackDST<dyn TestTrait> {
 		#[derive(Debug)]
 		struct TwoStruct;
 		impl TestTrait for TwoStruct {
@@ -67,7 +67,7 @@ fn many_instances()
 fn closure()
 {
 	let v1 = 1234u64;
-	let c: StackDST<Fn()->String> = StackDST::new(|| format!("{}", v1)).map_err(|_| "Oops").unwrap();
+	let c: StackDST<dyn Fn()->String> = StackDST::new(|| format!("{}", v1)).map_err(|_| "Oops").unwrap();
 	assert_eq!(c(), "1234");
 }
 
@@ -77,8 +77,8 @@ fn oversize()
 {
 	use std::any::Any;
 	const MAX_SIZE_PTRS: usize = 8;
-	assert!( StackDST::<Any>::new([0usize; MAX_SIZE_PTRS]).is_ok() );
-	assert!( StackDST::<Any>::new([0usize; MAX_SIZE_PTRS+1]).is_err() );
+	assert!( StackDST::<dyn Any>::new([0usize; MAX_SIZE_PTRS]).is_ok() );
+	assert!( StackDST::<dyn Any>::new([0usize; MAX_SIZE_PTRS+1]).is_err() );
 }
 
 
@@ -86,5 +86,5 @@ fn oversize()
 fn option()
 {
 	use std::any::Any;
-	assert!( Some(StackDST::<Any>::new("foo").unwrap()).is_some() );
+	assert!( Some(StackDST::<dyn Any>::new("foo").unwrap()).is_some() );
 }
