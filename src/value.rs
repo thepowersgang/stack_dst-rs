@@ -23,24 +23,6 @@ pub struct ValueA<T: ?Sized, D: ::DataBuf> {
 	data: D,
 }
 
-/// Obtain raw pointer given a Value reference
-unsafe fn as_ptr<T: ?Sized, D: ::DataBuf>(s: &ValueA<T, D>) -> *mut T {
-	let mut ret: *const T = mem::uninitialized();
-	{
-		let ret_as_slice = super::ptr_as_slice(&mut ret);
-		let data = s.data.as_ref();
-		// 1. Data pointer
-		ret_as_slice[0] = data[..].as_ptr() as usize;
-		// 2. Pointer info
-		let info_size = ret_as_slice.len() - 1;
-		let info_ofs = data.len() - info_size;
-		for i in 0 .. info_size {
-			ret_as_slice[1+i] = data[info_ofs + i];
-		}
-	}
-	ret as *mut _
-}
-
 impl<T: ?Sized, D: ::DataBuf> ValueA<T, D>
 {
 	/// Construct a stack-based DST
@@ -81,7 +63,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D>
 					_pd: marker::PhantomData,
 					data: D::default(),
 				};
-			assert!(info.len() + (size + mem::size_of::<usize>() - 1) / mem::size_of::<usize>() <= rv.data.as_ref().len());
+			assert!(info.len() + super::round_to_words(size) <= rv.data.as_ref().len());
 
 			// Place pointer information at the end of the region
 			// - Allows the data to be at the start for alignment purposes
@@ -101,19 +83,28 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D>
 			Some(rv)
 		}
 	}
+
+	/// Obtain raw pointer to the contained data
+	unsafe fn as_ptr(&self) -> *mut T
+	{
+		let data = self.data.as_ref();
+		let info_size = mem::size_of::<*mut T>() / mem::size_of::<usize>() - 1;
+		let info_ofs = data.len() - info_size;
+		super::make_fat_ptr( data[..].as_ptr() as usize, &data[info_ofs..] )
+	}
 }
 impl<T: ?Sized, D: ::DataBuf> ops::Deref for ValueA<T, D> {
 	type Target = T;
 	fn deref(&self) -> &T {
 		unsafe {
-			&*as_ptr(self)
+			&*self.as_ptr()
 		}
 	}
 }
 impl<T: ?Sized, D: ::DataBuf> ops::DerefMut for ValueA<T, D> {
 	fn deref_mut(&mut self) -> &mut T {
 		unsafe {
-			&mut *as_ptr(self)
+			&mut *self.as_ptr()
 		}
 	}
 }

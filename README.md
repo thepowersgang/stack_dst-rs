@@ -13,7 +13,7 @@ takes ownership of `value`, and is saved to a StackDST
 ```rust
 use stack_dst::Value as StackDST;
 
-fn make_closure(value: u64) -> StackDST<Fn()->String> {
+fn make_closure(value: u64) -> StackDST<dyn Fn()->String> {
     StackDST::new(move || format!("Hello there! value={}", value)).ok().expect("Closure doesn't fit")
 }
 let closure = make_closure(12);
@@ -22,7 +22,10 @@ assert_eq!( closure(), "Hello there! value=12" );
 
 # Status
 - Works for most test cases
-- Not rigourously tested
+- Not rigourously tested across platforms
+
+# Minimum rust version
+- Uses `MaybeUninit`, so requires at least 1.36
 
 ## License
 

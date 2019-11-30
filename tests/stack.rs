@@ -8,7 +8,7 @@ type DstStack<T> = stack_dst::StackA<T, [usize; 8]>;
 // A trivial check that ensures that methods are correctly called
 fn trivial_type()
 {
-	let mut val = DstStack::<PartialEq<u32>>::new();
+	let mut val = DstStack::<dyn PartialEq<u32>>::new();
 	val.push(1234).unwrap();
 	val.push(1233).unwrap();
 	assert!( *val.top().unwrap() != 1234 );
@@ -55,7 +55,7 @@ fn slices()
 #[test]
 fn limits()
 {
-	let mut val = stack_dst::StackA::<Any, [usize; 2]>::new();
+	let mut val = stack_dst::StackA::<dyn Any, [usize; 2]>::new();
 	// Pushing when full
 	val.push(1usize).unwrap();
 	assert!(val.push(2usize).is_err());
@@ -90,7 +90,7 @@ fn destructors()
 
 	let v: ::std::rc::Rc<::std::cell::Cell<_>> = Default::default();
 
-	let mut stack = ::stack_dst::StackA::<Any, [usize; 8]>::new();
+	let mut stack = ::stack_dst::StackA::<dyn Any, [usize; 8]>::new();
 	// Successful pushes shouldn't call destructors
 	stack.push( DropWatch(v.clone()) ).ok().unwrap();
 	assert_eq!(v.get(), 0);
