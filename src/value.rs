@@ -116,3 +116,5 @@ impl<T: ?Sized, D: ::DataBuf> ops::Drop for ValueA<T, D> {
 	}
 }
 
+mod trait_impls;
+
