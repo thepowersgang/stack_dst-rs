@@ -51,6 +51,30 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D>
 			},
 		}
 	}
+
+	#[cfg(feature="alloc")]
+	/// Construct a stack-based DST, falling back on boxing if the value doesn't fit
+	/// 
+	/// ```
+	/// # extern crate core;
+	/// use stack_dst::ValueA;
+	/// use core::fmt::Debug;
+	/// let val = [1usize, 2, 3, 4];
+	/// assert!( ValueA::<dyn Debug, [usize; 2]>::new(val).is_err() );
+	/// let v = ValueA::<dyn Debug, [usize; 2]>::new_or_boxed(val);
+	/// println!("v = {:?}", v);
+	/// ```
+	pub fn new_or_boxed<U>(val: U) -> ValueA<T, D>
+	where
+		U: marker::Unsize<T>,
+		::alloc::boxed::Box<U>: marker::Unsize<T>
+	{
+		match Self::new(val)
+		{
+		Ok(v) => v,
+		Err(val) => Self::new(Box::new(val)).ok().expect("Insufficient space for Box<T>"),
+		}
+	}
 	
 	unsafe fn new_raw(info: &[usize], data: *mut (), size: usize) -> Option<ValueA<T,D>>
 	{
