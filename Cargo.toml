@@ -10,7 +10,7 @@ keywords = ["nightly", "stack", "dst"]
 license = "MIT OR Apache-2.0"
 
 [features]
-default = ["std"]
+default = ["std", "alloc"]
 
 std = []
-
+alloc = []

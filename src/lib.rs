@@ -39,10 +39,14 @@
 #![deny(missing_docs)]
 use std::{mem,slice};
 
+#[cfg(feature="std")]
+extern crate core;
 #[cfg(not(feature="std"))]
 mod std {
 	pub use core::{ops,mem,slice,marker,ptr};
 }
+#[cfg(feature="alloc")]
+extern crate alloc;
 
 /// Trait used to represent a data buffer, typically you'll passs a `[usize; N]` array.
 pub trait DataBuf: Copy+Default+AsMut<[usize]>+AsRef<[usize]> {

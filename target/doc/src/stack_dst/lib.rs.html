@@ -82,6 +82,10 @@
 <span id="82">82</span>
 <span id="83">83</span>
 <span id="84">84</span>
+<span id="85">85</span>
+<span id="86">86</span>
+<span id="87">87</span>
+<span id="88">88</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Support for storing dynamically-sized types on the stack</span>
 <span class="doccomment">//!</span>
@@ -124,10 +128,14 @@
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>)]</span>
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">mem</span>,<span class="ident">slice</span>};
 
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span><span class="op">=</span><span class="string">&quot;std&quot;</span>)]</span>
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">core</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span><span class="op">=</span><span class="string">&quot;std&quot;</span>))]</span>
 <span class="kw">mod</span> <span class="ident">std</span> {
 	<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">core</span>::{<span class="ident">ops</span>,<span class="ident">mem</span>,<span class="ident">slice</span>,<span class="ident">marker</span>,<span class="ident">ptr</span>};
 }
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span><span class="op">=</span><span class="string">&quot;alloc&quot;</span>)]</span>
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">alloc</span>;
 
 <span class="doccomment">/// Trait used to represent a data buffer, typically you&#39;ll passs a `[usize; N]` array.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">DataBuf</span>: <span class="ident">Copy</span><span class="op">+</span><span class="ident">Default</span><span class="op">+</span><span class="ident">AsMut</span><span class="op">&lt;</span>[<span class="ident">usize</span>]<span class="op">&gt;</span><span class="op">+</span><span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">usize</span>]<span class="op">&gt;</span> {
