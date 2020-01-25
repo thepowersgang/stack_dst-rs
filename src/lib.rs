@@ -31,6 +31,7 @@
 //! # }
 //! ```
 #![feature(unsize)]	// needed for Unsize
+#![feature(const_generics)]
 
 #![cfg_attr(feature="no_std",no_std)]
 #![crate_type="lib"]
@@ -51,7 +52,7 @@ pub trait DataBuf: Copy+Default+AsMut<[usize]>+AsRef<[usize]> {
 impl<T: Copy+Default+AsMut<[usize]>+AsRef<[usize]>> DataBuf for T {
 }
 
-pub use value::{ValueA,Value};
+pub use value::{Value};
 pub use stack::{StackA};
 
 mod value;
@@ -64,5 +65,20 @@ fn ptr_as_slice<T: ?Sized>(ptr: &mut *const T) -> &mut [usize] {
 	// SAFE: Points to valid memory (a raw pointer)
 	unsafe {
 		slice::from_raw_parts_mut(ptr as *mut _ as *mut usize, words)
+	}
+}
+
+fn make_fat_ptr<T: ?Sized>(data_ptr: usize, meta_vals: &[usize]) -> *mut T {
+	// SAFE: Nothing glaring
+	unsafe
+	{
+		let mut rv: *const T = mem::uninitialized();
+		{
+			let s = ptr_as_slice(&mut rv);
+			s[0] = data_ptr;
+			s[1..].copy_from_slice(meta_vals);
+		}
+		assert_eq!(rv as *const (), data_ptr as *const ());
+		rv as *mut T
 	}
 }

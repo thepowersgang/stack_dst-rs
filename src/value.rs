@@ -5,48 +5,24 @@
 
 use std::{ops,mem,marker,ptr};
 
-/// 8 data words, plus one metadata
-pub const DEFAULT_SIZE: usize = 8+1;
-
-/// Stack-allocated DST (using a default size)
-pub type Value<T/*: ?Sized*/> = ValueA<T, [usize; DEFAULT_SIZE]>;
-
 /// Stack-allocated dynamically sized type
 ///
 /// `T` is the unsized type contaned.
 /// `D` is the buffer used to hold the unsized type (both data and metadata).
-pub struct ValueA<T: ?Sized, D: ::DataBuf> {
+pub struct Value<T: ?Sized, const WORDS: usize> {
 	// Force alignment to be 8 bytes (for types that contain u64s)
 	_align: [u64; 0],
 	_pd: marker::PhantomData<T>,
 	// Data contains the object data first, then padding, then the pointer information
-	data: D,
+	data: [usize; WORDS],
 }
 
-/// Obtain raw pointer given a Value reference
-unsafe fn as_ptr<T: ?Sized, D: ::DataBuf>(s: &ValueA<T, D>) -> *mut T {
-	let mut ret: *const T = mem::uninitialized();
-	{
-		let ret_as_slice = super::ptr_as_slice(&mut ret);
-		let data = s.data.as_ref();
-		// 1. Data pointer
-		ret_as_slice[0] = data[..].as_ptr() as usize;
-		// 2. Pointer info
-		let info_size = ret_as_slice.len() - 1;
-		let info_ofs = data.len() - info_size;
-		for i in 0 .. info_size {
-			ret_as_slice[1+i] = data[info_ofs + i];
-		}
-	}
-	ret as *mut _
-}
-
-impl<T: ?Sized, D: ::DataBuf> ValueA<T, D>
+impl<T: ?Sized, const WORDS: usize> Value<T, WORDS>
 {
 	/// Construct a stack-based DST
 	/// 
 	/// Returns Ok(dst) if the allocation was successful, or Err(val) if it failed
-	pub fn new<U: marker::Unsize<T>>(val: U) -> Result<ValueA<T,D>,U> {
+	pub fn new<U: marker::Unsize<T>>(val: U) -> Result<Self,U> {
 		let rv = unsafe {
 			let mut ptr: *const T = &val as &T;
 			let words = super::ptr_as_slice(&mut ptr);
@@ -55,7 +31,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D>
 			assert!(mem::align_of::<U>() <= mem::align_of::<Self>(), "TODO: Enforce alignment >{} (requires {})",
 				mem::align_of::<Self>(), mem::align_of::<U>());
 			
-			ValueA::new_raw(&words[1..], words[0] as *mut (), mem::size_of::<U>())
+			Value::new_raw(&words[1..], words[0] as *mut (), mem::size_of::<U>())
 			};
 		match rv
 		{
@@ -70,16 +46,16 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D>
 		}
 	}
 	
-	unsafe fn new_raw(info: &[usize], data: *mut (), size: usize) -> Option<ValueA<T,D>>
+	unsafe fn new_raw(info: &[usize], data: *mut (), size: usize) -> Option<Self>
 	{
-		if info.len()*mem::size_of::<usize>() + size > mem::size_of::<D>() {
+		if info.len()*mem::size_of::<usize>() + size > mem::size_of::<[usize; WORDS]>() {
 			None
 		}
 		else {
-			let mut rv = ValueA {
+			let mut rv = Value {
 					_align: [],
 					_pd: marker::PhantomData,
-					data: D::default(),
+					data: [0; WORDS],
 				};
 			assert!(info.len() + (size + mem::size_of::<usize>() - 1) / mem::size_of::<usize>() <= rv.data.as_ref().len());
 
@@ -101,27 +77,35 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D>
 			Some(rv)
 		}
 	}
+	 
+    /// Obtain raw pointer to the contained data
+    unsafe fn as_ptr(&self) -> *mut T
+    {
+            let data = self.data.as_ref();
+            let info_size = mem::size_of::<*mut T>() / mem::size_of::<usize>() - 1;
+            let info_ofs = data.len() - info_size;
+            super::make_fat_ptr( data[..].as_ptr() as usize, &data[info_ofs..] )
+    }
 }
-impl<T: ?Sized, D: ::DataBuf> ops::Deref for ValueA<T, D> {
+impl<T: ?Sized, const WORDS: usize> ops::Deref for Value<T, WORDS> {
 	type Target = T;
 	fn deref(&self) -> &T {
 		unsafe {
-			&*as_ptr(self)
+			&*self.as_ptr()
 		}
 	}
 }
-impl<T: ?Sized, D: ::DataBuf> ops::DerefMut for ValueA<T, D> {
+impl<T: ?Sized, const WORDS: usize> ops::DerefMut for Value<T, WORDS> {
 	fn deref_mut(&mut self) -> &mut T {
 		unsafe {
-			&mut *as_ptr(self)
+			&mut *self.as_ptr()
 		}
 	}
 }
-impl<T: ?Sized, D: ::DataBuf> ops::Drop for ValueA<T, D> {
+impl<T: ?Sized, const WORDS: usize> ops::Drop for Value<T, WORDS> {
 	fn drop(&mut self) {
 		unsafe {
 			ptr::drop_in_place(&mut **self)
 		}
 	}
 }
-
