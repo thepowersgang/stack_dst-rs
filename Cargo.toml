@@ -1,12 +1,12 @@
 [package]
 name = "stack_dst"
-version = "0.5.0"
+version = "0.6.0"
 authors = [ "John Hodge <tpg@mutabah.net>" ]
-description = "A wrapper that allows storage of unsized values of up to a fixed size on the stack (requires nighly currently, to drop unsized types)"
+description = "A wrapper that allows storage of unsized values of up to a fixed size inline (without boxing)"
 repository = "https://github.com/thepowersgang/stack_dst-rs"
 documentation = "http://thepowersgang.github.io/stack_dst-rs/target/doc/stack_dst/"
 readme = "README.md"
-keywords = ["nightly", "stack", "dst"]
+keywords = ["stack", "dst"]
 license = "MIT OR Apache-2.0"
 
 [features]
@@ -14,3 +14,7 @@ default = ["std", "alloc"]
 
 std = []
 alloc = []
+unsize = []
+
+[package.metadata.docs.rs]
+all-features = true

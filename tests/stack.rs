@@ -9,8 +9,8 @@ type DstStack<T> = stack_dst::StackA<T, [usize; 8]>;
 fn trivial_type()
 {
 	let mut val = DstStack::<dyn PartialEq<u32>>::new();
-	val.push(1234).unwrap();
-	val.push(1233).unwrap();
+	val.push_stable(1234, |p|p).unwrap();
+	val.push_stable(1233, |p|p).unwrap();
 	assert!( *val.top().unwrap() != 1234 );
 	assert!( *val.top().unwrap() == 1233 );
 	val.pop();
@@ -57,8 +57,8 @@ fn limits()
 {
 	let mut val = stack_dst::StackA::<dyn Any, [usize; 2]>::new();
 	// Pushing when full
-	val.push(1usize).unwrap();
-	assert!(val.push(2usize).is_err());
+	val.push_stable(1usize, |p|p).unwrap();
+	assert!(val.push_stable(2usize, |p|p).is_err());
 
 	// Popping past empty (should stay empty)
 	val.pop();
@@ -68,14 +68,14 @@ fn limits()
 
 
 	// Zero-sized types
-	val.push( () ).unwrap();
-	val.push( () ).unwrap();
-	assert!( val.push( () ).is_err() );
+	val.push_stable( (), |p|p ).unwrap();
+	val.push_stable( (), |p|p ).unwrap();
+	assert!( val.push_stable( (), |p|p ).is_err() );
 	val.pop();
 
 	// Pushing a value when there is space, but no enough space for the entire value
-	assert!(val.push(1usize).is_err());
-	val.push( () ).unwrap();
+	assert!(val.push_stable(1usize, |p|p).is_err());
+	val.push_stable( (), |p|p ).unwrap();
 }
 
 #[test]
@@ -92,16 +92,16 @@ fn destructors()
 
 	let mut stack = ::stack_dst::StackA::<dyn Any, [usize; 8]>::new();
 	// Successful pushes shouldn't call destructors
-	stack.push( DropWatch(v.clone()) ).ok().unwrap();
+	stack.push_stable( DropWatch(v.clone()), |p|p ).ok().unwrap();
 	assert_eq!(v.get(), 0);
-	stack.push( DropWatch(v.clone()) ).ok().unwrap();
+	stack.push_stable( DropWatch(v.clone()), |p|p ).ok().unwrap();
 	assert_eq!(v.get(), 0);
-	stack.push( DropWatch(v.clone()) ).ok().unwrap();
+	stack.push_stable( DropWatch(v.clone()), |p|p ).ok().unwrap();
 	assert_eq!(v.get(), 0);
-	stack.push( DropWatch(v.clone()) ).ok().unwrap();
+	stack.push_stable( DropWatch(v.clone()), |p|p ).ok().unwrap();
 	assert_eq!(v.get(), 0);
 	// Failed push should return the value (which will be dropped)
-	assert!( stack.push( DropWatch(v.clone()) ).is_err() );
+	assert!( stack.push_stable( DropWatch(v.clone()), |p|p ).is_err() );
 	assert_eq!(v.get(), 1);
 
 	// Pop a value, drop increases

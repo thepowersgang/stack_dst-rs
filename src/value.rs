@@ -15,7 +15,8 @@ pub type Value<T/*: ?Sized*/> = ValueA<T, [usize; DEFAULT_SIZE]>;
 ///
 /// `T` is the unsized type contaned.
 /// `D` is the buffer used to hold the unsized type (both data and metadata).
-pub struct ValueA<T: ?Sized, D: ::DataBuf> {
+pub struct ValueA<T: ?Sized, D: ::DataBuf>
+{
 	// Force alignment to be 8 bytes (for types that contain u64s)
 	_align: [u64; 0],
 	_pd: marker::PhantomData<T>,
@@ -28,9 +29,18 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D>
 	/// Construct a stack-based DST
 	/// 
 	/// Returns Ok(dst) if the allocation was successful, or Err(val) if it failed
+	#[cfg(feature="unsize")]
 	pub fn new<U: marker::Unsize<T>>(val: U) -> Result<ValueA<T,D>,U> {
+		Self::new_stable(val, |p| p)
+	}
+
+	/// Construct a stack-based DST (without needing `Unsize`)
+	/// 
+	/// Returns Ok(dst) if the allocation was successful, or Err(val) if it failed
+	pub fn new_stable<U, F: FnOnce(&U)->&T>(val: U, get_ref: F) -> Result<ValueA<T,D>, U>
+	{
 		let rv = unsafe {
-			let mut ptr: *const T = &val as &T;
+			let mut ptr: *const T = get_ref(&val);
 			let words = super::ptr_as_slice(&mut ptr);
 			assert!(words[0] == &val as *const _ as usize, "BUG: Pointer layout is not (data_ptr, info...)");
 			// - Ensure that Self is aligned same as data requires
@@ -52,7 +62,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D>
 		}
 	}
 
-	#[cfg(feature="alloc")]
+	#[cfg(all(feature="alloc", feature="unsize"))]
 	/// Construct a stack-based DST, falling back on boxing if the value doesn't fit
 	/// 
 	/// ```
@@ -75,8 +85,9 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D>
 		Err(val) => Self::new(Box::new(val)).ok().expect("Insufficient space for Box<T>"),
 		}
 	}
-	
-	unsafe fn new_raw(info: &[usize], data: *mut (), size: usize) -> Option<ValueA<T,D>>
+
+	/// UNSAFE: `data` must point to `size` bytes, which shouldn't be freed if `Some` is returned
+	pub unsafe fn new_raw(info: &[usize], data: *mut (), size: usize) -> Option<ValueA<T,D>>
 	{
 		if info.len()*mem::size_of::<usize>() + size > mem::size_of::<D>() {
 			None

@@ -92,13 +92,20 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T,D>
 	}
 
 	/// Push a value at the top of the stack
+	#[cfg(feature="unsize")]
 	pub fn push<U: marker::Unsize<T>>(&mut self, v: U) -> Result<(), U>
+	{
+		self.push_stable(v, |p| p)
+	}
+
+	/// Push a value at the top of the stack (without using `Unsize`)
+	pub fn push_stable<U, F: FnOnce(&U) -> &T>(&mut self, v: U, f: F) -> Result<(), U>
 	{
 		// - Ensure that Self is aligned same as data requires
 		assert!(mem::align_of::<U>() <= mem::align_of::<Self>(), "TODO: Enforce alignment >{} (requires {})",
 			mem::align_of::<Self>(), mem::align_of::<U>());
 
-		match self.push_inner(&v)
+		match self.push_inner( f(&v) )
 		{
 		Ok(d) => {
 			// SAFE: Destination address is valid

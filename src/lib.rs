@@ -11,7 +11,7 @@
 //! use std::any::Any;
 //! use stack_dst::Value;
 //!
-//! let dst = Value::<dyn Any>::new(1234u64).ok().expect("Integer did not fit in allocation");
+//! let dst = Value::<dyn Any>::new_stable(1234u64, |p| p as _).ok().expect("Integer did not fit in allocation");
 //! println!("dst as u64 = {:?}", dst.downcast_ref::<u64>());
 //! println!("dst as i8 = {:?}", dst.downcast_ref::<i8>());
 //! ```
@@ -24,14 +24,23 @@
 //! use stack_dst::Value;
 //! 
 //! fn make_closure(value: u64) -> Value<dyn FnMut()->String> {
-//!     Value::new(move || format!("Hello there! value={}", value))
+//!     Value::new_stable(move || format!("Hello there! value={}", value), |p| p as _)
 //!         .ok().expect("Closure doesn't fit")
 //! }
 //! let mut closure = make_closure(666);
 //! assert_eq!( (&mut *closure)(), "Hello there! value=666" );
 //! # }
 //! ```
-#![feature(unsize)]	// needed for Unsize
+//!
+//! # Features
+//! ## `std` (default)
+//! Enables the use of the standard library as a dependency
+//! ## `alloc` (default)
+//! Provides the `StackDstA::new_or_boxed` method (if `unsize` feature is active too)
+//! ## `unsize` (optional)
+//! Uses the nightly feature `unsize` to provide a more egonomic API (no need for the `|p| p` closures)
+//!
+#![cfg_attr(feature="unsize",feature(unsize))]	// needed for Unsize
 
 #![cfg_attr(not(feature="std"),no_std)]
 #![crate_type="lib"]
