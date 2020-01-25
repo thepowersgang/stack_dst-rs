@@ -7,7 +7,7 @@ use stack_dst::Value as StackDST;
 // A trivial check that ensures that methods are correctly called
 fn trivial_type()
 {
-	let val = StackDST::<dyn PartialEq<u32>>::new( 1234u32 ).unwrap();
+	let val = StackDST::<dyn PartialEq<u32>>::new_stable( 1234u32, |p|p ).unwrap();
 	assert!( *val == 1234 );
 	assert!( *val != 1233 );
 }
@@ -23,7 +23,7 @@ fn ensure_drop()
 	impl<'a> Drop for Struct<'a> { fn drop(&mut self) { self.0.set(true); } }
 	
 	let flag = Cell::new(false);
-	let val: StackDST<dyn std::fmt::Debug> = StackDST::new( Struct(&flag) ).unwrap();
+	let val = StackDST::<dyn std::fmt::Debug>::new_stable( Struct(&flag), |p|p ).unwrap();
 	assert!(flag.get() == false);
 	drop(val);
 	assert!(flag.get() == true);
@@ -43,7 +43,7 @@ fn many_instances()
 		impl TestTrait for OneStruct {
 			fn get_value(&self) -> u32 { self.0 }
 		}
-		StackDST::new( OneStruct(12345) ).unwrap()
+		StackDST::new_stable( OneStruct(12345), |p| p as _ ).unwrap()
 	}
 	
 	#[inline(never)]
@@ -53,7 +53,7 @@ fn many_instances()
 		impl TestTrait for TwoStruct {
 			fn get_value(&self) -> u32 { 54321 }
 		}
-		StackDST::new(TwoStruct).unwrap()
+		StackDST::new_stable(TwoStruct, |p| p as _).unwrap()
 	}
 	
 	let i1 = instance_one();
@@ -67,7 +67,7 @@ fn many_instances()
 fn closure()
 {
 	let v1 = 1234u64;
-	let c: StackDST<dyn Fn()->String> = StackDST::new(|| format!("{}", v1)).map_err(|_| "Oops").unwrap();
+	let c: StackDST<dyn Fn()->String> = StackDST::new_stable(|| format!("{}", v1), |p| p as _).map_err(|_| "Oops").unwrap();
 	assert_eq!(c(), "1234");
 }
 
@@ -77,8 +77,8 @@ fn oversize()
 {
 	use std::any::Any;
 	const MAX_SIZE_PTRS: usize = 8;
-	assert!( StackDST::<dyn Any>::new([0usize; MAX_SIZE_PTRS]).is_ok() );
-	assert!( StackDST::<dyn Any>::new([0usize; MAX_SIZE_PTRS+1]).is_err() );
+	assert!( StackDST::<dyn Any>::new_stable([0usize; MAX_SIZE_PTRS], |p|p).is_ok() );
+	assert!( StackDST::<dyn Any>::new_stable([0usize; MAX_SIZE_PTRS+1], |p|p).is_err() );
 }
 
 
@@ -86,5 +86,6 @@ fn oversize()
 fn option()
 {
 	use std::any::Any;
-	assert!( Some(StackDST::<dyn Any>::new("foo").unwrap()).is_some() );
+	assert!( Some(StackDST::<dyn Any>::new_stable("foo", |p|p).unwrap()).is_some() );
 }
+
