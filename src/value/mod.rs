@@ -109,7 +109,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
             let src_ptr = data as *const u8;
             let dataptr = rv.data.as_mut()[..].as_mut_ptr() as *mut u8;
             for i in 0..size {
-                *dataptr.offset(i as isize) = *src_ptr.offset(i as isize);
+                *dataptr.add(i) = *src_ptr.add(i);
             }
             Some(rv)
         }

@@ -20,7 +20,6 @@
 //! The following snippet shows how small (`'static`) closures can be returned using this crate
 //!
 //! ```rust
-//! # fn main() {
 //! use stack_dst::Value;
 //!
 //! fn make_closure(value: u64) -> Value<dyn FnMut()->String> {
@@ -29,7 +28,6 @@
 //! }
 //! let mut closure = make_closure(666);
 //! assert_eq!( (&mut *closure)(), "Hello there! value=666" );
-//! # }
 //! ```
 //!
 //! # Features
