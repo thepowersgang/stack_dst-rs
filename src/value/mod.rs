@@ -77,12 +77,11 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
         U: marker::Unsize<T>,
         ::alloc::boxed::Box<U>: marker::Unsize<T>,
     {
-        match Self::new(val) {
-            Ok(v) => v,
-            Err(val) => Self::new(Box::new(val))
+        Self::new(val).unwrap_or_else(|val| {
+            Self::new(Box::new(val))
                 .ok()
-                .expect("Insufficient space for Box<T>"),
-        }
+                .expect("Insufficient space for Box<T>")
+        })
     }
 
     /// UNSAFE: `data` must point to `size` bytes, which shouldn't be freed if `Some` is returned

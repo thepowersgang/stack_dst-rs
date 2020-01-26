@@ -52,6 +52,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     fn meta_words() -> usize {
         mem::size_of::<&T>() / mem::size_of::<usize>() - 1
     }
+
     fn push_inner(&mut self, fat_ptr: &T) -> Result<&mut [usize], ()> {
         let bytes = mem::size_of_val(fat_ptr);
         let words = super::round_to_words(bytes) + Self::meta_words();
@@ -109,15 +110,11 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
         if self.next_ofs == 0 {
             None
         } else {
-            let len = self.data.as_ref().len();
-            let meta = &self.data.as_ref()[len - self.next_ofs..];
+            let dar = self.data.as_ref();
+            let meta = &dar[dar.len() - self.next_ofs..];
+            let mw = Self::meta_words();
             // SAFE: Internal consistency maintains the metadata validity
-            Some(unsafe {
-                super::make_fat_ptr(
-                    meta[Self::meta_words()..].as_ptr() as usize,
-                    &meta[..Self::meta_words()],
-                )
-            })
+            Some(unsafe { super::make_fat_ptr(meta[mw..].as_ptr() as usize, &meta[..mw]) })
         }
     }
     /// Returns a pointer to the top item on the stack
@@ -146,32 +143,20 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
 impl<D: ::DataBuf> StackA<str, D> {
     /// Push the contents of a string slice as an item onto the stack
     pub fn push_str(&mut self, v: &str) -> Result<(), ()> {
-        match self.push_inner(v) {
-            Ok(d) => {
-                unsafe {
-                    ptr::copy(v.as_bytes().as_ptr(), d.as_mut_ptr() as *mut u8, v.len());
-                }
-                Ok(())
-            }
-            Err(_) => Err(()),
-        }
+        self.push_inner(v).map(|d| unsafe {
+            ptr::copy(v.as_bytes().as_ptr(), d.as_mut_ptr() as *mut u8, v.len());
+        })
     }
 }
 impl<D: ::DataBuf, T: Clone> StackA<[T], D> {
     /// Pushes a set of items (cloning out of the input slice)
     pub fn push_cloned(&mut self, v: &[T]) -> Result<(), ()> {
-        match self.push_inner(&v) {
-            Ok(d) => {
-                unsafe {
-                    let mut ptr = d.as_mut_ptr() as *mut T;
-                    for val in v {
-                        ptr::write(ptr, val.clone());
-                        ptr = ptr.offset(1);
-                    }
-                }
-                Ok(())
+        self.push_inner(&v).map(|d| unsafe {
+            let mut ptr = d.as_mut_ptr() as *mut T;
+            for val in v {
+                ptr::write(ptr, val.clone());
+                ptr = ptr.offset(1);
             }
-            Err(_) => Err(()),
-        }
+        })
     }
 }
