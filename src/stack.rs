@@ -53,7 +53,8 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
         mem::size_of::<&T>() / mem::size_of::<usize>() - 1
     }
 
-    fn push_inner(&mut self, fat_ptr: &T) -> Result<&mut [usize], ()> {
+	/// Returns the metadata and data slots
+    fn push_inner(&mut self, fat_ptr: &T) -> Result<(&mut [usize],&mut [usize]), ()> {
         let bytes = mem::size_of_val(fat_ptr);
         let words = super::round_to_words(bytes) + Self::meta_words();
         // Check if there is sufficient space for the new item
@@ -71,7 +72,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
             meta.clone_from_slice(&ptr_words[1..]);
 
             // Increment offset and return
-            Ok(rv)
+            Ok( (meta, rv) )
         } else {
             Err(())
         }
@@ -94,7 +95,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
         );
 
         match self.push_inner(f(&v)) {
-            Ok(d) => {
+            Ok((_,d)) => {
                 // SAFE: Destination address is valid
                 unsafe {
                     ptr::write(d.as_mut_ptr() as *mut U, v);
@@ -143,7 +144,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
 impl<D: ::DataBuf> StackA<str, D> {
     /// Push the contents of a string slice as an item onto the stack
     pub fn push_str(&mut self, v: &str) -> Result<(), ()> {
-        self.push_inner(v).map(|d| unsafe {
+        self.push_inner(v).map(|(_,d)| unsafe {
             ptr::copy(v.as_bytes().as_ptr(), d.as_mut_ptr() as *mut u8, v.len());
         })
     }
@@ -151,12 +152,24 @@ impl<D: ::DataBuf> StackA<str, D> {
 impl<D: ::DataBuf, T: Clone> StackA<[T], D> {
     /// Pushes a set of items (cloning out of the input slice)
     pub fn push_cloned(&mut self, v: &[T]) -> Result<(), ()> {
-        self.push_inner(&v).map(|d| unsafe {
-            let mut ptr = d.as_mut_ptr() as *mut T;
-            for val in v {
-                ptr::write(ptr, val.clone());
-                ptr = ptr.offset(1);
-            }
-        })
+        let (meta,d) = self.push_inner(&v)?;
+		// Prepare the slot with zeros (as if it's an empty slice)
+		// The length is updated as each item is written
+		// - This ensures that there's no drop issues during write
+		meta[0] = 0;
+		for v in d.iter_mut() {
+			*v = 0;
+		}
+
+		unsafe {
+			let mut ptr = d.as_mut_ptr() as *mut T;
+			for val in v {
+				ptr::write(ptr, val.clone());
+				meta[0] += 1;
+				ptr = ptr.offset(1);
+			}
+		}
+
+		Ok( () )
     }
 }
