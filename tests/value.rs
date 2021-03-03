@@ -88,3 +88,17 @@ fn option() {
     use std::any::Any;
     assert!(Some(StackDST::<dyn Any>::new_stable("foo", |p| p).unwrap()).is_some());
 }
+
+
+#[test] #[should_panic]
+fn stable_closure_different_pointer() {
+    use std::fmt::Debug;
+	static BIG_VALUE: [i32; 4] = [0,0,0,0];
+	// Type confusion via a different pointer
+	let _ = StackDST::<dyn Debug>::new_stable(123, |_| &BIG_VALUE as &dyn Debug);
+}
+#[test] #[should_panic]
+fn stable_closure_subset() {
+    use std::fmt::Debug;
+	let _ = StackDST::<dyn Debug>::new_stable( (1,2), |v| &v.0 as &dyn Debug);
+}
