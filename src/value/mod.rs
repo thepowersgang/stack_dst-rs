@@ -35,6 +35,8 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     pub fn new_stable<U, F: FnOnce(&U) -> &T>(val: U, get_ref: F) -> Result<ValueA<T, D>, U> {
         let rv = unsafe {
             let mut ptr: *const T = get_ref(&val);
+			assert_eq!(ptr as *const u8, &val as *const _ as *const u8, "MISUSE: Closure returned different pointer");
+			assert_eq!(mem::size_of_val(&*ptr), mem::size_of::<U>(), "MISUSE: Closure returned a subset pointer");
             let words = super::ptr_as_slice(&mut ptr);
             assert!(
                 words[0] == &val as *const _ as usize,
