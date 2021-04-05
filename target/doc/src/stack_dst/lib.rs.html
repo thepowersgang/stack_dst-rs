@@ -160,7 +160,7 @@
 
 <span class="doccomment">/// Obtain mutable access to a pointer&#39;s words</span>
 <span class="kw">fn</span> <span class="ident">ptr_as_slice</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">ptr</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">usize</span>] {
-    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">%</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="op">=</span><span class="op">=</span> <span class="number">0</span>);
+    <span class="macro">assert!</span>(<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">%</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="op">=</span><span class="op">=</span> <span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">words</span> <span class="op">=</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">/</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>();
     <span class="comment">// SAFE: Points to valid memory (a raw pointer)</span>
     <span class="kw">unsafe</span> { <span class="ident">slice</span>::<span class="ident">from_raw_parts_mut</span>(<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">usize</span>, <span class="ident">words</span>) }
@@ -175,7 +175,7 @@
         <span class="ident">s</span>[<span class="number">1</span>..].<span class="ident">copy_from_slice</span>(<span class="ident">meta_vals</span>);
     }
     <span class="kw">let</span> <span class="ident">rv</span> <span class="op">=</span> <span class="ident">rv</span>.<span class="ident">assume_init</span>();
-    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">rv</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> (), <span class="ident">data_ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> ());
+    <span class="macro">assert_eq!</span>(<span class="ident">rv</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> (), <span class="ident">data_ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> ());
     <span class="ident">rv</span>
 }
 
