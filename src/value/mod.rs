@@ -1,12 +1,6 @@
 //! Single DST stored inline
 
-use std::{marker, mem, ops, ptr};
-
-/// 8 data words, plus one metadata
-pub const DEFAULT_SIZE: usize = 8 + 1;
-
-/// Stack-allocated DST (using a default size)
-pub type Value<T /*: ?Sized*/> = ValueA<T, [usize; DEFAULT_SIZE]>;
+use ::core::{marker, mem, ops, ptr};
 
 /// Stack-allocated dynamically sized type
 ///
@@ -25,30 +19,25 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     ///
     /// Returns Ok(dst) if the allocation was successful, or Err(val) if it failed
     #[cfg(feature = "unsize")]
-    pub fn new<U: marker::Unsize<T>>(val: U) -> Result<ValueA<T, D>, U> {
+    pub fn new<U: marker::Unsize<T>>(val: U) -> Result<ValueA<T, D>, U>
+	where
+        (U,Self): crate::AlignmentValid,
+	{
         Self::new_stable(val, |p| p)
     }
 
     /// Construct a stack-based DST (without needing `Unsize`)
     ///
     /// Returns Ok(dst) if the allocation was successful, or Err(val) if it failed
-    pub fn new_stable<U, F: FnOnce(&U) -> &T>(val: U, get_ref: F) -> Result<ValueA<T, D>, U> {
+    pub fn new_stable<U, F: FnOnce(&U) -> &T>(val: U, get_ref: F) -> Result<ValueA<T, D>, U>
+	where
+        (U,Self): crate::AlignmentValid,
+	{
+		<(U,Self) as crate::AlignmentValid>::check();
+
         let rv = unsafe {
-            let mut ptr: *const T = get_ref(&val);
-			assert_eq!(ptr as *const u8, &val as *const _ as *const u8, "MISUSE: Closure returned different pointer");
-			assert_eq!(mem::size_of_val(&*ptr), mem::size_of::<U>(), "MISUSE: Closure returned a subset pointer");
+			let mut ptr: *const _ = crate::check_fat_pointer(&val, get_ref);
             let words = super::ptr_as_slice(&mut ptr);
-            assert!(
-                words[0] == &val as *const _ as usize,
-                "BUG: Pointer layout is not (data_ptr, info...)"
-            );
-            // - Ensure that Self is aligned same as data requires
-            assert!(
-                mem::align_of::<U>() <= mem::align_of::<Self>(),
-                "TODO: Enforce alignment >{} (requires {})",
-                mem::align_of::<Self>(),
-                mem::align_of::<U>()
-            );
 
             ValueA::new_raw(&words[1..], words[0] as *mut (), mem::size_of::<U>())
         };
@@ -96,16 +85,14 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
                 _pd: marker::PhantomData,
                 data: D::default(),
             };
-            assert!(info.len() + super::round_to_words(size) <= rv.data.as_ref().len());
+            assert!(info.len() + D::round_to_words(size) <= rv.data.as_ref().len());
 
             // Place pointer information at the end of the region
             // - Allows the data to be at the start for alignment purposes
             {
                 let info_ofs = rv.data.as_ref().len() - info.len();
                 let info_dst = &mut rv.data.as_mut()[info_ofs..];
-                for (d, v) in Iterator::zip(info_dst.iter_mut(), info.iter()) {
-                    *d = *v;
-                }
+				crate::store_metadata(info_dst, info);
             }
 
             let src_ptr = data as *const u8;
@@ -116,6 +103,14 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
             Some(rv)
         }
     }
+
+	#[cfg(false_)]
+	#[cfg(feature="unsize")]
+	// TODO: A function to replace the contents (reusing a non-trivial buffer)
+	pub fn replace<U>(&mut self, val: U) -> Result<(), U> {
+		// Check size requirements (allow resizing)
+		// If met, drop the existing item and move in the new item
+	}
 
     /// Obtain raw pointer to the contained data
     unsafe fn as_ptr(&self) -> *mut T {

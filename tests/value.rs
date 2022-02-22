@@ -1,11 +1,11 @@
 extern crate stack_dst;
 
-use stack_dst::Value as StackDST;
+use stack_dst::Value;
 
 #[test]
 // A trivial check that ensures that methods are correctly called
 fn trivial_type() {
-    let val = StackDST::<dyn PartialEq<u32>>::new_stable(1234u32, |p| p).unwrap();
+    let val = Value::<dyn PartialEq<u32>, 2>::new_stable(1234u32, |p| p).unwrap();
     assert!(*val == 1234);
     assert!(*val != 1233);
 }
@@ -24,7 +24,7 @@ fn ensure_drop() {
     }
 
     let flag = Cell::new(false);
-    let val = StackDST::<dyn std::fmt::Debug>::new_stable(Struct(&flag), |p| p).unwrap();
+    let val = Value::<dyn std::fmt::Debug, 2>::new_stable(Struct(&flag), |p| p).unwrap();
     assert!(flag.get() == false);
     drop(val);
     assert!(flag.get() == true);
@@ -37,7 +37,7 @@ fn many_instances() {
     }
 
     #[inline(never)]
-    fn instance_one() -> StackDST<dyn TestTrait> {
+    fn instance_one() -> Value<dyn TestTrait, 2> {
         #[derive(Debug)]
         struct OneStruct(u32);
         impl TestTrait for OneStruct {
@@ -45,11 +45,11 @@ fn many_instances() {
                 self.0
             }
         }
-        StackDST::new_stable(OneStruct(12345), |p| p as _).unwrap()
+        Value::new_stable(OneStruct(12345), |p| p as _).unwrap()
     }
 
     #[inline(never)]
-    fn instance_two() -> StackDST<dyn TestTrait> {
+    fn instance_two() -> Value<dyn TestTrait, 2> {
         #[derive(Debug)]
         struct TwoStruct;
         impl TestTrait for TwoStruct {
@@ -57,7 +57,7 @@ fn many_instances() {
                 54321
             }
         }
-        StackDST::new_stable(TwoStruct, |p| p as _).unwrap()
+        Value::new_stable(TwoStruct, |p| p as _).unwrap()
     }
 
     let i1 = instance_one();
@@ -69,7 +69,7 @@ fn many_instances() {
 #[test]
 fn closure() {
     let v1 = 1234u64;
-    let c: StackDST<dyn Fn() -> String> = StackDST::new_stable(|| format!("{}", v1), |p| p as _)
+    let c: Value<dyn Fn() -> String, 8> = Value::new_stable(|| format!("{}", v1), |p| p as _)
         .map_err(|_| "Oops")
         .unwrap();
     assert_eq!(c(), "1234");
@@ -79,14 +79,14 @@ fn closure() {
 fn oversize() {
     use std::any::Any;
     const MAX_SIZE_PTRS: usize = 8;
-    assert!(StackDST::<dyn Any>::new_stable([0usize; MAX_SIZE_PTRS], |p| p).is_ok());
-    assert!(StackDST::<dyn Any>::new_stable([0usize; MAX_SIZE_PTRS + 1], |p| p).is_err());
+    assert!(Value::<dyn Any, 9>::new_stable([0usize; MAX_SIZE_PTRS], |p| p).is_ok());
+    assert!(Value::<dyn Any, 9>::new_stable([0usize; MAX_SIZE_PTRS + 1], |p| p).is_err());
 }
 
 #[test]
 fn option() {
     use std::any::Any;
-    assert!(Some(StackDST::<dyn Any>::new_stable("foo", |p| p).unwrap()).is_some());
+    assert!(Some(Value::<dyn Any, 3>::new_stable("foo", |p| p).unwrap()).is_some());
 }
 
 
@@ -95,10 +95,10 @@ fn stable_closure_different_pointer() {
     use std::fmt::Debug;
 	static BIG_VALUE: [i32; 4] = [0,0,0,0];
 	// Type confusion via a different pointer
-	let _ = StackDST::<dyn Debug>::new_stable(123, |_| &BIG_VALUE as &dyn Debug);
+	let _ = Value::<dyn Debug, 9>::new_stable(123, |_| &BIG_VALUE as &dyn Debug);
 }
 #[test] #[should_panic]
 fn stable_closure_subset() {
     use std::fmt::Debug;
-	let _ = StackDST::<dyn Debug>::new_stable( (1,2), |v| &v.0 as &dyn Debug);
+	let _ = Value::<dyn Debug, 9>::new_stable( (1,2), |v| &v.0 as &dyn Debug);
 }
