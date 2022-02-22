@@ -1,6 +1,6 @@
 //! Single DST stored inline
 
-use ::core::{marker, mem, ops, ptr};
+use core::{marker, mem, ops, ptr};
 
 /// Stack-allocated dynamically sized type
 ///
@@ -20,9 +20,9 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     /// Returns Ok(dst) if the allocation was successful, or Err(val) if it failed
     #[cfg(feature = "unsize")]
     pub fn new<U: marker::Unsize<T>>(val: U) -> Result<ValueA<T, D>, U>
-	where
-        (U,Self): crate::AlignmentValid,
-	{
+    where
+        (U, Self): crate::AlignmentValid,
+    {
         Self::new_stable(val, |p| p)
     }
 
@@ -30,13 +30,13 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     ///
     /// Returns Ok(dst) if the allocation was successful, or Err(val) if it failed
     pub fn new_stable<U, F: FnOnce(&U) -> &T>(val: U, get_ref: F) -> Result<ValueA<T, D>, U>
-	where
-        (U,Self): crate::AlignmentValid,
-	{
-		<(U,Self) as crate::AlignmentValid>::check();
+    where
+        (U, Self): crate::AlignmentValid,
+    {
+        <(U, Self) as crate::AlignmentValid>::check();
 
         let rv = unsafe {
-			let mut ptr: *const _ = crate::check_fat_pointer(&val, get_ref);
+            let mut ptr: *const _ = crate::check_fat_pointer(&val, get_ref);
             let words = super::ptr_as_slice(&mut ptr);
 
             ValueA::new_raw(&words[1..], words[0] as *mut (), mem::size_of::<U>())
@@ -92,7 +92,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
             {
                 let info_ofs = rv.data.as_ref().len() - info.len();
                 let info_dst = &mut rv.data.as_mut()[info_ofs..];
-				crate::store_metadata(info_dst, info);
+                crate::store_metadata(info_dst, info);
             }
 
             let src_ptr = data as *const u8;
@@ -104,13 +104,13 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
         }
     }
 
-	#[cfg(false_)]
-	#[cfg(feature="unsize")]
-	// TODO: A function to replace the contents (reusing a non-trivial buffer)
-	pub fn replace<U>(&mut self, val: U) -> Result<(), U> {
-		// Check size requirements (allow resizing)
-		// If met, drop the existing item and move in the new item
-	}
+    #[cfg(false_)]
+    #[cfg(feature = "unsize")]
+    // TODO: A function to replace the contents (reusing a non-trivial buffer)
+    pub fn replace<U>(&mut self, val: U) -> Result<(), U> {
+        // Check size requirements (allow resizing)
+        // If met, drop the existing item and move in the new item
+    }
 
     /// Obtain raw pointer to the contained data
     unsafe fn as_ptr(&self) -> *mut T {

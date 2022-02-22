@@ -1,5 +1,5 @@
 // See parent for docs
-use ::core::{marker, mem, ops, ptr, iter};
+use core::{iter, marker, mem, ops, ptr};
 
 mod impls;
 
@@ -14,16 +14,14 @@ mod impls;
 /// queue.push_back_str("World");
 /// assert_eq!(queue.pop_front().as_deref(), Some("Hello"));
 /// ```
-pub struct FifoA<T: ?Sized, D: ::DataBuf>
-{
+pub struct FifoA<T: ?Sized, D: ::DataBuf> {
     _align: [u64; 0],
     _pd: marker::PhantomData<*const T>,
     read_pos: usize,
     write_pos: usize,
     data: D,
 }
-impl<T: ?Sized, D: ::DataBuf> FifoA<T,D>
-{
+impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
     /// Construct a new (empty) list
     pub fn new() -> Self {
         FifoA {
@@ -46,7 +44,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T,D>
     #[cfg(feature = "unsize")]
     pub fn push_back<U: marker::Unsize<T>>(&mut self, v: U) -> Result<(), U>
     where
-        (U,Self): crate::AlignmentValid,
+        (U, Self): crate::AlignmentValid,
     {
         self.push_back_stable(v, |p| p)
     }
@@ -54,26 +52,25 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T,D>
     /// Push a value to the end of the list (without using `Unsize`)
     pub fn push_back_stable<U, F: FnOnce(&U) -> &T>(&mut self, v: U, f: F) -> Result<(), U>
     where
-        (U,Self): crate::AlignmentValid,
+        (U, Self): crate::AlignmentValid,
     {
-        <(U,Self) as crate::AlignmentValid>::check();
+        <(U, Self) as crate::AlignmentValid>::check();
 
         // SAFE: Destination address is valid
         unsafe {
-            match self.push_inner(crate::check_fat_pointer(&v, f))
-            {
-            Ok( (_,data) ) => {
-                ptr::write(data.as_mut_ptr() as *mut U, v);
-                Ok(())
-            }
-            Err(_) => Err(v),
+            match self.push_inner(crate::check_fat_pointer(&v, f)) {
+                Ok((_, data)) => {
+                    ptr::write(data.as_mut_ptr() as *mut U, v);
+                    Ok(())
+                }
+                Err(_) => Err(v),
             }
         }
     }
 
     /// Push an item to the list (setting metadata based on `fat_ptr`)
     /// UNSAFE: Caller must fill the buffer before any potential panic
-    unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<(&mut [D::Inner],&mut [D::Inner]), ()> {
+    unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<(&mut [D::Inner], &mut [D::Inner]), ()> {
         let bytes = mem::size_of_val(fat_ptr);
         let words = D::round_to_words(bytes) + Self::meta_words();
 
@@ -87,11 +84,11 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T,D>
             if self.space_words() < words {
                 if let Err(_) = self.data.extend(self.write_pos + words) {
                     // if expansion fails, return error
-                    return Err( () );
+                    return Err(());
                 }
             }
         }
-        assert!( self.space_words() >= words );
+        assert!(self.space_words() >= words);
 
         // Get the base pointer for the new item
         let slot = &mut self.data.as_mut()[self.write_pos..][..words];
@@ -103,7 +100,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T,D>
         super::store_metadata(meta, &crate::ptr_as_slice(&mut ptr_raw)[1..]);
 
         // Increment offset and return
-        Ok( (meta, rv) )
+        Ok((meta, rv))
     }
 
     /// Compact the list (moving the read position to zero)
@@ -115,18 +112,16 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T,D>
         }
     }
 
-
     /// Checks if the queue is currently empty
     pub fn empty(&self) -> bool {
         self.read_pos == self.write_pos
     }
 
     /// Remove an item from the front of the list
-    pub fn pop_front(&mut self) -> Option<PopHandle<T,D>> {
+    pub fn pop_front(&mut self) -> Option<PopHandle<T, D>> {
         if self.read_pos == self.write_pos {
             None
-        }
-        else {
+        } else {
             Some(PopHandle { parent: self })
         }
     }
@@ -134,8 +129,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T,D>
     pub fn front_mut(&mut self) -> Option<&mut T> {
         if self.read_pos == self.write_pos {
             None
-        }
-        else {
+        } else {
             Some(unsafe { &mut *self.front_raw() })
         }
     }
@@ -143,8 +137,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T,D>
     pub fn front(&self) -> Option<&T> {
         if self.read_pos == self.write_pos {
             None
-        }
-        else {
+        } else {
             Some(unsafe { &*self.front_raw() })
         }
     }
@@ -159,7 +152,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T,D>
     /// assert_eq!(it.next(), Some("world"));
     /// assert_eq!(it.next(), None);
     /// ```
-    pub fn iter(&self) -> Iter<T,D> {
+    pub fn iter(&self) -> Iter<T, D> {
         Iter(self, self.read_pos)
     }
     /// Obtain a mutable iterator
@@ -175,12 +168,12 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T,D>
     /// assert_eq!(it.next(), Some(&[8][..]));
     /// assert_eq!(it.next(), None);
     /// ```
-    pub fn iter_mut(&mut self) -> IterMut<T,D> {
+    pub fn iter_mut(&mut self) -> IterMut<T, D> {
         IterMut(self, self.read_pos)
     }
     // Note: No into_iter, not possible due to unsized types
     // Could make a `drain` that returns read handles (pops as it goes)
-    
+
     fn front_raw(&self) -> *mut T {
         assert!(self.read_pos < self.write_pos);
 
@@ -211,7 +204,7 @@ impl<D: ::DataBuf> FifoA<str, D> {
     pub fn push_back_str(&mut self, v: &str) -> Result<(), ()> {
         unsafe {
             self.push_inner(v)
-                .map(|(_,d)| ptr::copy(v.as_bytes().as_ptr(), d.as_mut_ptr() as *mut u8, v.len()))
+                .map(|(_, d)| ptr::copy(v.as_bytes().as_ptr(), d.as_mut_ptr() as *mut u8, v.len()))
         }
     }
 }
@@ -220,29 +213,33 @@ impl<D: ::DataBuf, T: Clone> FifoA<[T], D> {
     pub fn push_cloned(&mut self, v: &[T]) -> Result<(), ()> {
         // SAFE: Carefully constructed to maintain consistency
         unsafe {
-            let (meta,d) = self.push_inner(v)?;
+            let (meta, d) = self.push_inner(v)?;
             crate::list_push_cloned(meta, d, v);
         }
 
-        Ok( () )
+        Ok(())
     }
     /// Pushes a set of items (copying out of the input slice)
     pub fn push_copied(&mut self, v: &[T]) -> Result<(), ()>
     where
-        T: Copy
+        T: Copy,
     {
         // SAFE: Carefully constructed to maintain consistency
         unsafe {
-            self.push_inner(v)
-                .map(|(_,d)| ptr::copy(v.as_ptr() as *const u8, d.as_mut_ptr() as *mut u8, mem::size_of_val(v)))
+            self.push_inner(v).map(|(_, d)| {
+                ptr::copy(
+                    v.as_ptr() as *const u8,
+                    d.as_mut_ptr() as *mut u8,
+                    mem::size_of_val(v),
+                )
+            })
         }
     }
 }
 
 impl<T: ?Sized, D: crate::DataBuf> ops::Drop for FifoA<T, D> {
     fn drop(&mut self) {
-        while let Some(_) = self.pop_front() {
-        }
+        while let Some(_) = self.pop_front() {}
     }
 }
 
@@ -268,35 +265,32 @@ impl<'a, T: ?Sized, D: crate::DataBuf> ops::Drop for PopHandle<'a, T, D> {
 }
 
 /// DST FIFO iterator (immutable)
-pub struct Iter<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>( &'a FifoA<T, D>, usize );
+pub struct Iter<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>(&'a FifoA<T, D>, usize);
 impl<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> iter::Iterator for Iter<'a, T, D> {
     type Item = &'a T;
     fn next(&mut self) -> Option<&'a T> {
         if self.1 == self.0.write_pos {
             None
-        }
-        else {
+        } else {
             // SAFE: Bounds checked, aliasing enforced by API
             let rv = unsafe { &*self.0.raw_at(self.1) };
-            self.1 += FifoA::<T,D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
+            self.1 += FifoA::<T, D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
             Some(rv)
         }
     }
 }
 /// DST FIFO iterator (mutable)
-pub struct IterMut<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>( &'a mut FifoA<T, D>, usize );
+pub struct IterMut<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>(&'a mut FifoA<T, D>, usize);
 impl<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> iter::Iterator for IterMut<'a, T, D> {
     type Item = &'a mut T;
     fn next(&mut self) -> Option<&'a mut T> {
         if self.1 == self.0.write_pos {
             None
-        }
-        else {
+        } else {
             // SAFE: Bounds checked, aliasing enforced by API
             let rv = unsafe { &mut *self.0.raw_at(self.1) };
-            self.1 += FifoA::<T,D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
+            self.1 += FifoA::<T, D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
             Some(rv)
         }
     }
 }
-

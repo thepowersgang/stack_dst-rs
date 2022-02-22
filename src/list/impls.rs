@@ -1,4 +1,3 @@
-
 macro_rules! d {
     ( $t:path; $($body:tt)* ) => {
         impl<D: ::DataBuf, T: ?Sized> $t for super::FifoA<T, D>
@@ -10,7 +9,7 @@ macro_rules! d {
     }
 }
 
-d!{ ::core::fmt::Debug;
+d! { ::core::fmt::Debug;
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         f.write_str("[")?;
         for v in self.iter() {

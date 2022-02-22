@@ -1,4 +1,4 @@
-use ::core::{marker, mem, ops, ptr, iter};
+use core::{iter, marker, mem, ops, ptr};
 
 mod impls;
 
@@ -58,7 +58,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     }
 
     /// Returns the metadata and data slots
-    unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<(&mut [D::Inner],&mut [D::Inner]), ()> {
+    unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<(&mut [D::Inner], &mut [D::Inner]), ()> {
         let bytes = mem::size_of_val(fat_ptr);
         let words = D::round_to_words(bytes) + Self::meta_words();
 
@@ -85,7 +85,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
             super::store_metadata(meta, &crate::ptr_as_slice(&mut ptr_raw)[1..]);
 
             // Increment offset and return
-            Ok( (meta, rv) )
+            Ok((meta, rv))
         } else {
             Err(())
         }
@@ -95,7 +95,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     #[cfg(feature = "unsize")]
     pub fn push<U: marker::Unsize<T>>(&mut self, v: U) -> Result<(), U>
     where
-        (U,Self): crate::AlignmentValid,
+        (U, Self): crate::AlignmentValid,
     {
         self.push_stable(v, |p| p)
     }
@@ -103,18 +103,18 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     /// Push a value at the top of the stack (without using `Unsize`)
     pub fn push_stable<U, F: FnOnce(&U) -> &T>(&mut self, v: U, f: F) -> Result<(), U>
     where
-        (U,Self): crate::AlignmentValid,
+        (U, Self): crate::AlignmentValid,
     {
-        <(U,Self) as crate::AlignmentValid>::check();
+        <(U, Self) as crate::AlignmentValid>::check();
 
         // SAFE: Destination address is valid
         unsafe {
             match self.push_inner(crate::check_fat_pointer(&v, f)) {
-            Ok((_,d)) => {
-                ptr::write(d.as_mut_ptr() as *mut U, v);
-                Ok(())
+                Ok((_, d)) => {
+                    ptr::write(d.as_mut_ptr() as *mut U, v);
+                    Ok(())
                 }
-            Err(_) => Err(v),
+                Err(_) => Err(v),
             }
         }
     }
@@ -192,62 +192,65 @@ impl<D: ::DataBuf> StackA<str, D> {
     pub fn push_str(&mut self, v: &str) -> Result<(), ()> {
         unsafe {
             self.push_inner(v)
-                .map(|(_,d)| ptr::copy(v.as_bytes().as_ptr(), d.as_mut_ptr() as *mut u8, v.len()))
-       }
+                .map(|(_, d)| ptr::copy(v.as_bytes().as_ptr(), d.as_mut_ptr() as *mut u8, v.len()))
+        }
     }
 }
 impl<D: ::DataBuf, T: Clone> StackA<[T], D> {
     /// Pushes a set of items (cloning out of the input slice)
     pub fn push_cloned(&mut self, v: &[T]) -> Result<(), ()> {
         unsafe {
-            let (meta,d) = self.push_inner(v)?;
+            let (meta, d) = self.push_inner(v)?;
             crate::list_push_cloned(meta, d, v);
         }
 
-        Ok( () )
+        Ok(())
     }
     /// Pushes a set of items (copying out of the input slice)
     pub fn push_copied(&mut self, v: &[T]) -> Result<(), ()>
     where
-        T: Copy
+        T: Copy,
     {
         // SAFE: Carefully constructed to maintain consistency
         unsafe {
-            self.push_inner(v)
-                .map(|(_,d)| ptr::copy(v.as_ptr() as *const u8, d.as_mut_ptr() as *mut u8, mem::size_of_val(v)))
+            self.push_inner(v).map(|(_, d)| {
+                ptr::copy(
+                    v.as_ptr() as *const u8,
+                    d.as_mut_ptr() as *mut u8,
+                    mem::size_of_val(v),
+                )
+            })
         }
     }
 }
 
 /// DST Stack iterator (immutable)
-pub struct Iter<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>( &'a StackA<T, D>, usize );
+pub struct Iter<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>(&'a StackA<T, D>, usize);
 impl<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> iter::Iterator for Iter<'a, T, D> {
     type Item = &'a T;
     fn next(&mut self) -> Option<&'a T> {
         if self.1 == 0 {
             None
-        }
-        else {
+        } else {
             // SAFE: Bounds checked, aliasing enforced by API
             let rv = unsafe { &*self.0.raw_at(self.1) };
-            self.1 -= StackA::<T,D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
+            self.1 -= StackA::<T, D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
             Some(rv)
         }
     }
 }
 
 /// DST Stack iterator (immutable)
-pub struct IterMut<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>( &'a mut StackA<T, D>, usize );
+pub struct IterMut<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>(&'a mut StackA<T, D>, usize);
 impl<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> iter::Iterator for IterMut<'a, T, D> {
     type Item = &'a mut T;
     fn next(&mut self) -> Option<&'a mut T> {
         if self.1 == 0 {
             None
-        }
-        else {
+        } else {
             // SAFE: Bounds checked, aliasing enforced by API
             let rv = unsafe { &mut *self.0.raw_at(self.1) };
-            self.1 -= StackA::<T,D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
+            self.1 -= StackA::<T, D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
             Some(rv)
         }
     }

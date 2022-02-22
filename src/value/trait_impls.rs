@@ -39,6 +39,6 @@ macro_rules! impl_fmt {
         )*
     }
 }
-impl_fmt!{
+impl_fmt! {
     Display Debug UpperHex LowerHex
 }
