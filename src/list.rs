@@ -15,7 +15,6 @@ mod impls;
 /// assert_eq!(queue.pop_front().as_deref(), Some("Hello"));
 /// ```
 pub struct FifoA<T: ?Sized, D: ::DataBuf> {
-    _align: [u64; 0],
     _pd: marker::PhantomData<*const T>,
     read_pos: usize,
     write_pos: usize,
@@ -25,7 +24,6 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
     /// Construct a new (empty) list
     pub fn new() -> Self {
         FifoA {
-            _align: [],
             _pd: marker::PhantomData,
             read_pos: 0,
             write_pos: 0,
@@ -44,7 +42,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
     #[cfg(feature = "unsize")]
     pub fn push_back<U: marker::Unsize<T>>(&mut self, v: U) -> Result<(), U>
     where
-        (U, Self): crate::AlignmentValid,
+        (U, D::Inner): crate::AlignmentValid,
     {
         self.push_back_stable(v, |p| p)
     }
@@ -52,7 +50,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
     /// Push a value to the end of the list (without using `Unsize`)
     pub fn push_back_stable<U, F: FnOnce(&U) -> &T>(&mut self, v: U, f: F) -> Result<(), U>
     where
-        (U, Self): crate::AlignmentValid,
+        (U, D::Inner): crate::AlignmentValid,
     {
         <(U, Self) as crate::AlignmentValid>::check();
 
@@ -209,7 +207,15 @@ impl<D: ::DataBuf> FifoA<str, D> {
     }
 }
 impl<D: ::DataBuf, T: Clone> FifoA<[T], D> {
+    // TODO: Function that calls a closure a number of times to push
+
     /// Pushes a set of items (cloning out of the input slice)
+    ///
+    /// ```
+    /// # use ::stack_dst::FifoA;
+    /// let mut queue = FifoA::<[String],[usize; 16]>::new();
+    /// queue.push_cloned(&["1".to_owned()]);
+    /// ```
     pub fn push_cloned(&mut self, v: &[T]) -> Result<(), ()> {
         // SAFE: Carefully constructed to maintain consistency
         unsafe {
@@ -220,6 +226,12 @@ impl<D: ::DataBuf, T: Clone> FifoA<[T], D> {
         Ok(())
     }
     /// Pushes a set of items (copying out of the input slice)
+    ///
+    /// ```
+    /// # use ::stack_dst::FifoA;
+    /// let mut queue = FifoA::<[usize],[usize; 4]>::new();
+    /// queue.push_copied(&[1]);
+    /// ```
     pub fn push_copied(&mut self, v: &[T]) -> Result<(), ()>
     where
         T: Copy,

@@ -7,8 +7,6 @@ use core::{marker, mem, ops, ptr};
 /// `T` is the unsized type contained.
 /// `D` is the buffer used to hold the unsized type (both data and metadata).
 pub struct ValueA<T: ?Sized, D: ::DataBuf> {
-    // Force alignment to be 8 bytes (for types that contain u64s)
-    _align: [u64; 0],
     _pd: marker::PhantomData<T>,
     // Data contains the object data first, then padding, then the pointer information
     data: D,
@@ -21,7 +19,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     #[cfg(feature = "unsize")]
     pub fn new<U: marker::Unsize<T>>(val: U) -> Result<ValueA<T, D>, U>
     where
-        (U, Self): crate::AlignmentValid,
+        (U, D::Inner): crate::AlignmentValid,
     {
         Self::new_stable(val, |p| p)
     }
@@ -31,9 +29,9 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     /// Returns Ok(dst) if the allocation was successful, or Err(val) if it failed
     pub fn new_stable<U, F: FnOnce(&U) -> &T>(val: U, get_ref: F) -> Result<ValueA<T, D>, U>
     where
-        (U, Self): crate::AlignmentValid,
+        (U, D::Inner): crate::AlignmentValid,
     {
-        <(U, Self) as crate::AlignmentValid>::check();
+        <(U, D::Inner) as crate::AlignmentValid>::check();
 
         let rv = unsafe {
             let mut ptr: *const _ = crate::check_fat_pointer(&val, get_ref);
@@ -81,7 +79,6 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
             None
         } else {
             let mut rv = ValueA {
-                _align: [],
                 _pd: marker::PhantomData,
                 data: D::default(),
             };

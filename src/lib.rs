@@ -1,7 +1,8 @@
-//! Support for storing dynamically-sized types on the stack
+//! Support for storing dynamically-sized types within fixed-size allocations
 //!
-//! The `Value` type provides a fixed size (7 word in the current version) buffer in which a trait object
-//! or array can be stored, without resorting to a heap allocation.
+//! - The `Value` type provides a fixed size (7 word in the current version) buffer in which a trait object
+//!   or array can be stored, without resorting to a heap allocation.
+//! - The `Fifo` and `Stack` types provide collection types (first-in-first-out and last-in-first-out).
 //!
 //! # Examples
 //! ## An unboxed any

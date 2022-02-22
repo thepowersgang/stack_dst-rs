@@ -16,7 +16,6 @@ mod impls;
 ///
 /// Note: Each item in the stack takes at least one slot in the buffer (to store the metadata)
 pub struct StackA<T: ?Sized, D: ::DataBuf> {
-    _align: [u64; 0],
     _pd: marker::PhantomData<*const T>,
     // Offset from the _back_ of `data` to the next free position.
     // I.e. data[data.len() - cur_ofs] is the first metadata word
@@ -41,7 +40,6 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     /// Construct a new (empty) stack
     pub fn new() -> StackA<T, D> {
         StackA {
-            _align: [],
             _pd: marker::PhantomData,
             next_ofs: 0,
             data: D::default(),
@@ -95,7 +93,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     #[cfg(feature = "unsize")]
     pub fn push<U: marker::Unsize<T>>(&mut self, v: U) -> Result<(), U>
     where
-        (U, Self): crate::AlignmentValid,
+        (U, D::Inner): crate::AlignmentValid,
     {
         self.push_stable(v, |p| p)
     }
@@ -103,9 +101,9 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     /// Push a value at the top of the stack (without using `Unsize`)
     pub fn push_stable<U, F: FnOnce(&U) -> &T>(&mut self, v: U, f: F) -> Result<(), U>
     where
-        (U, Self): crate::AlignmentValid,
+        (U, D::Inner): crate::AlignmentValid,
     {
-        <(U, Self) as crate::AlignmentValid>::check();
+        <(U, D::Inner) as crate::AlignmentValid>::check();
 
         // SAFE: Destination address is valid
         unsafe {
