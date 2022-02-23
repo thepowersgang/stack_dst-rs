@@ -1,22 +1,23 @@
 # stack_dst
 
-Stack-allocated dynamically-sized types
+Inline (aka stack-allocated) dynamically-sized types
 
 # Overview
-This crate provides a simple way of returnings DSTs up to a certain size without requiring a heap allocation.
+This crate provides ways of storing DSTs inline (not needing a heap allocation)
 
 # Basic usage
-This crate provides two types - `Value` (which is a fixed-size allocation for a single DST), and `Stack` (a fixed-size buffer
-for multiple DSTs arranged in a LIFO stack.
+This crate covers two primary usecases
+- `Value` allows storing (and returning) a single DST within a fixed-size allocation.
+- `Stack` and `Fifo` allow heterogeneous collections without needing to box each object.
 
 # Example
 One of the most obvious uses is to allow returning capturing closures without having to box them. In the example below, the closure
-takes ownership of `value`, and is saved to a StackDST
+takes ownership of `value`, and is then returned using a `Value`
 ```rust
-use stack_dst::Value as StackDST;
+use stack_dst::Value;
 
-fn make_closure(value: u64) -> StackDST<dyn Fn()->String> {
-    StackDST::new(move || format!("Hello there! value={}", value)).ok().expect("Closure doesn't fit")
+fn make_closure(value: u64) -> Value<dyn Fn()->String> {
+    Value::new(move || format!("Hello there! value={}", value)).ok().expect("Closure doesn't fit")
 }
 let closure = make_closure(12);
 assert_eq!( closure(), "Hello there! value=12" );
