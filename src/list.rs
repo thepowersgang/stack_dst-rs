@@ -9,7 +9,7 @@ mod impls;
 /// A First-In-First-Out queue of DSTs
 ///
 /// ```
-/// let mut queue = ::stack_dst::Fifo::<str, 8>::new();
+/// let mut queue = ::stack_dst::FifoA::<str, [usize; 8]>::new();
 /// queue.push_back_str("Hello");
 /// queue.push_back_str("World");
 /// assert_eq!(queue.pop_front().as_deref(), Some("Hello"));
@@ -22,12 +22,19 @@ pub struct FifoA<T: ?Sized, D: ::DataBuf> {
 }
 impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
     /// Construct a new (empty) list
-    pub fn new() -> Self {
+    pub fn new() -> Self
+    where
+        D: Default,
+    {
+        Self::with_buffer(D::default())
+    }
+    /// Construct a new (empty) list using the provided buffer
+    pub fn with_buffer(data: D) -> Self {
         FifoA {
             _pd: marker::PhantomData,
             read_pos: 0,
             write_pos: 0,
-            data: D::default(),
+            data,
         }
     }
 
@@ -252,6 +259,11 @@ impl<D: ::DataBuf, T: Clone> FifoA<[T], D> {
 impl<T: ?Sized, D: crate::DataBuf> ops::Drop for FifoA<T, D> {
     fn drop(&mut self) {
         while let Some(_) = self.pop_front() {}
+    }
+}
+impl<T: ?Sized, D: ::DataBuf + Default> Default for FifoA<T, D> {
+    fn default() -> Self {
+        FifoA::new()
     }
 }
 

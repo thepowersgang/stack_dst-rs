@@ -8,8 +8,6 @@
 pub trait DataBuf: AsMut<[Self::Inner]> + AsRef<[Self::Inner]> {
     /// Inner type of the buffer
     type Inner: Pod;
-    /// Create a default/new buffer
-    fn default() -> Self;
     /// Extend the buffer (fallible)
     fn extend(&mut self, len: usize) -> Result<(), ()>;
 
@@ -28,18 +26,22 @@ macro_rules! impl_pod {
 }
 impl_pod! { u8, u16, u32, u64, u128, usize }
 
+impl<T: DataBuf> DataBuf for &mut T {
+    type Inner = T::Inner;
+    fn extend(&mut self, len: usize) -> Result<(), ()> {
+        (**self).extend(len)
+    }
+}
+
 #[cfg(not(feature = "const_generics"))]
 macro_rules! impl_databuf_array {
     ( $($n:expr),* ) => {
         $(impl<T: Pod> DataBuf for [T; $n] {
             type Inner = T;
-            fn default() -> Self {
-                [Default::default(); $n]
-            }
             fn extend(&mut self, _: usize) -> Result<(), ()> {
                 Err(())
             }
-        })
+        })*
     }
 }
 #[cfg(not(feature = "const_generics"))]
@@ -57,9 +59,6 @@ impl_databuf_array! {
 #[cfg(feature = "const_generics")]
 impl<T: Pod, const N: usize> DataBuf for [T; N] {
     type Inner = T;
-    fn default() -> Self {
-        [Default::default(); N]
-    }
     fn extend(&mut self, _: usize) -> Result<(), ()> {
         Err(())
     }
@@ -79,9 +78,6 @@ impl<T: Pod, const N: usize> DataBuf for [T; N] {
 #[cfg(all(feature = "alloc"))]
 impl<T: Pod> crate::DataBuf for ::alloc::vec::Vec<T> {
     type Inner = T;
-    fn default() -> Self {
-        ::alloc::vec::Vec::new()
-    }
     fn extend(&mut self, len: usize) -> Result<(), ()> {
         if len > self.len() {
             self.resize(len, Default::default());

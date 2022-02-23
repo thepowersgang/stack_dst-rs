@@ -30,7 +30,7 @@ impl<T: ?Sized, D: ::DataBuf> ops::Drop for StackA<T, D> {
         }
     }
 }
-impl<T: ?Sized, D: ::DataBuf> Default for StackA<T, D> {
+impl<T: ?Sized, D: ::DataBuf + Default> Default for StackA<T, D> {
     fn default() -> Self {
         StackA::new()
     }
@@ -38,11 +38,18 @@ impl<T: ?Sized, D: ::DataBuf> Default for StackA<T, D> {
 
 impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     /// Construct a new (empty) stack
-    pub fn new() -> StackA<T, D> {
+    pub fn new() -> Self
+    where
+        D: Default,
+    {
+        Self::with_buffer(D::default())
+    }
+    /// Construct a new (empty) stack using the provided buffer
+    pub fn with_buffer(data: D) -> Self {
         StackA {
             _pd: marker::PhantomData,
             next_ofs: 0,
-            data: D::default(),
+            data,
         }
     }
 

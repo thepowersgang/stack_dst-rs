@@ -10,9 +10,9 @@
 //!
 //! ```rust
 //! # use std::any::Any;
-//! # use stack_dst::Value;
+//! # use stack_dst::ValueA;
 //! #
-//! let dst = Value::<dyn Any, 2>::new_stable(1234u64, |p| p as _)
+//! let dst = ValueA::<dyn Any, [usize; 2]>::new_stable(1234u64, |p| p as _)
 //!     .ok().expect("Integer did not fit in allocation");
 //! println!("dst as u64 = {:?}", dst.downcast_ref::<u64>());
 //! println!("dst as i8 = {:?}", dst.downcast_ref::<i8>());
@@ -22,10 +22,10 @@
 //! The following snippet shows how small (`'static`) closures can be returned using this crate
 //!
 //! ```rust
-//! # use stack_dst::Value;
+//! # use stack_dst::ValueA;
 //! #
-//! fn make_closure(value: u64) -> Value<dyn FnMut()->String, 3> {
-//!     Value::new_stable(move || format!("Hello there! value={}", value), |p| p as _)
+//! fn make_closure(value: u64) -> ValueA<dyn FnMut()->String, [usize; 3]> {
+//!     ValueA::new_stable(move || format!("Hello there! value={}", value), |p| p as _)
 //!         .ok().expect("Closure doesn't fit")
 //! }
 //! let mut closure = make_closure(666);

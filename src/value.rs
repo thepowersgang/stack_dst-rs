@@ -20,14 +20,41 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     pub fn new<U: marker::Unsize<T>>(val: U) -> Result<ValueA<T, D>, U>
     where
         (U, D::Inner): crate::AlignmentValid,
+        D: Default,
     {
         Self::new_stable(val, |p| p)
     }
 
+    /// Construct a stack-based DST using a pre-constructed buffer
+    ///
+    /// Returns `Ok(dst)` if the allocation was successful, or `Err(val)` if it failed
+    #[cfg(feature = "unsize")]
+    pub fn in_buffer<U: marker::Unsize<T>>(buffer: D, val: U) -> Result<ValueA<T, D>, U>
+    where
+        (U, D::Inner): crate::AlignmentValid,
+    {
+        Self::in_buffer_stable(buffer, val, |p| p)
+    }
+
     /// Construct a stack-based DST (without needing `Unsize`)
     ///
-    /// Returns Ok(dst) if the allocation was successful, or Err(val) if it failed
+    /// Returns `Ok(dst)` if the allocation was successful, or `Err(val)` if it failed
     pub fn new_stable<U, F: FnOnce(&U) -> &T>(val: U, get_ref: F) -> Result<ValueA<T, D>, U>
+    where
+        (U, D::Inner): crate::AlignmentValid,
+        D: Default,
+    {
+        Self::in_buffer_stable(D::default(), val, get_ref)
+    }
+
+    /// Construct a stack-based DST (without needing `Unsize`)
+    ///
+    /// Returns `Ok(dst)` if the allocation was successful, or `Err(val)` if it failed
+    pub fn in_buffer_stable<U, F: FnOnce(&U) -> &T>(
+        buffer: D,
+        val: U,
+        get_ref: F,
+    ) -> Result<ValueA<T, D>, U>
     where
         (U, D::Inner): crate::AlignmentValid,
     {
@@ -37,7 +64,12 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
             let mut ptr: *const _ = crate::check_fat_pointer(&val, get_ref);
             let words = super::ptr_as_slice(&mut ptr);
 
-            ValueA::new_raw(&words[1..], words[0] as *mut (), mem::size_of::<U>())
+            ValueA::new_raw(
+                &words[1..],
+                words[0] as *mut (),
+                mem::size_of::<U>(),
+                buffer,
+            )
         };
         match rv {
             Some(r) => {
@@ -65,6 +97,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     where
         U: marker::Unsize<T>,
         ::alloc::boxed::Box<U>: marker::Unsize<T>,
+        D: Default,
     {
         Self::new(val).unwrap_or_else(|val| {
             Self::new(Box::new(val))
@@ -74,13 +107,18 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     }
 
     /// UNSAFE: `data` must point to `size` bytes, which shouldn't be freed if `Some` is returned
-    pub unsafe fn new_raw(info: &[usize], data: *mut (), size: usize) -> Option<ValueA<T, D>> {
+    pub unsafe fn new_raw(
+        info: &[usize],
+        data: *mut (),
+        size: usize,
+        buffer: D,
+    ) -> Option<ValueA<T, D>> {
         if info.len() * mem::size_of::<usize>() + size > mem::size_of::<D>() {
             None
         } else {
             let mut rv = ValueA {
                 _pd: marker::PhantomData,
-                data: D::default(),
+                data: buffer,
             };
             assert!(info.len() + D::round_to_words(size) <= rv.data.as_ref().len());
 
