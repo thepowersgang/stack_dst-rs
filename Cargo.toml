@@ -1,6 +1,6 @@
 [package]
 name = "stack_dst"
-version = "0.7.0"
+version = "0.7.1"
 authors = [ "John Hodge <tpg@mutabah.net>" ]
 description = "A wrapper that allows storage of unsized values of up to a fixed size inline (without boxing)"
 repository = "https://github.com/thepowersgang/stack_dst-rs"
@@ -16,7 +16,8 @@ std = []
 alloc = []
 unsize = []
 const_generics = []
-full_const_generics = []
+# EXPERIMENTAL
+#full_const_generics = []
 
 [package.metadata.docs.rs]
 all-features = true

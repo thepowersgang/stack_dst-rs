@@ -61,7 +61,7 @@
 #![cfg_attr(feature = "unsize", feature(unsize))] // needed for Unsize
 #![cfg_attr(
     feature = "full_const_generics",
-    feature(const_generics, const_evaluatable_checked)
+    feature(generic_const_exprs)
 )]
 #![cfg_attr(feature = "full_const_generics", allow(incomplete_features))]
 #![no_std]
