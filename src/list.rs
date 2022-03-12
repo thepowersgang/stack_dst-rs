@@ -59,7 +59,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
     where
         (U, D::Inner): crate::AlignmentValid,
     {
-        <(U, Self) as crate::AlignmentValid>::check();
+        <(U, D::Inner) as crate::AlignmentValid>::check();
 
         // SAFE: Destination address is valid
         unsafe {
@@ -237,7 +237,10 @@ impl<D: ::DataBuf> FifoA<str, D> {
     }
 }
 
-impl<D: ::DataBuf, T: Clone> FifoA<[T], D> {
+impl<D: ::DataBuf, T: Clone> FifoA<[T], D>
+where
+    (T, D::Inner): crate::AlignmentValid,
+{
     /// Pushes a set of items (cloning out of the input slice)
     ///
     /// ```
@@ -246,6 +249,7 @@ impl<D: ::DataBuf, T: Clone> FifoA<[T], D> {
     /// queue.push_cloned(&["1".to_owned()]);
     /// ```
     pub fn push_cloned(&mut self, v: &[T]) -> Result<(), ()> {
+        <(T, D::Inner) as crate::AlignmentValid>::check();
         self.push_from_iter(v.iter().cloned())
     }
     /// Pushes a set of items (copying out of the input slice)
@@ -259,6 +263,7 @@ impl<D: ::DataBuf, T: Clone> FifoA<[T], D> {
     where
         T: Copy,
     {
+        <(T, D::Inner) as crate::AlignmentValid>::check();
         // SAFE: Carefully constructed to maintain consistency
         unsafe {
             self.push_inner(v).map(|pii| {
@@ -272,6 +277,8 @@ impl<D: ::DataBuf, T: Clone> FifoA<[T], D> {
     }
 }
 impl<D: crate::DataBuf, T> FifoA<[T], D>
+where
+    (T, D::Inner): crate::AlignmentValid,
 {
     /// Push an item, populated from an exact-sized iterator
     /// 
@@ -285,6 +292,7 @@ impl<D: crate::DataBuf, T> FifoA<[T], D>
     /// assert_eq!(stack.front().unwrap(), &[0,1,2,3,4,5,6,7,8,9]);
     /// ```
     pub fn push_from_iter(&mut self, mut iter: impl ExactSizeIterator<Item=T>)->Result<(),()> {
+        <(T, D::Inner) as crate::AlignmentValid>::check();
         // SAFE: API used correctly
         unsafe {
             let pii = self.push_inner_raw(iter.len() * mem::size_of::<T>(), &[0])?;

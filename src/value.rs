@@ -142,7 +142,6 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
         ::alloc::boxed::Box<U>: marker::Unsize<T>,
         D: Default,
     {
-        <(U, D::Inner) as crate::AlignmentValid>::check();
         Self::new(val).unwrap_or_else(|val| {
             Self::new::<::alloc::boxed::Box<_>>(::alloc::boxed::Box::new(val))
                 .ok()
@@ -208,6 +207,8 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     where
         (U, D::Inner): crate::AlignmentValid,
     {
+        <(U, D::Inner) as crate::AlignmentValid>::check();
+
         let size = mem::size_of::<U>();
         let mut ptr: *const _ = crate::check_fat_pointer(&val, get_ref);
         let words = super::ptr_as_slice(&mut ptr);

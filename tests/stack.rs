@@ -174,3 +174,35 @@ fn slice_push_panic_safety_unaligned() {
     }));
     assert_eq!(COUNT.load(Ordering::SeqCst), 1);
 }
+
+#[cfg(not(feature="full_const_generics"))]
+mod unaligned {
+    use std::any::Any;
+    use stack_dst::StackA;
+    #[test] #[should_panic]
+    fn push_stable() {
+        let mut stack = StackA::<dyn Any, [u8; 16]>::new();
+        let _ = stack.push_stable(123u32, |v| v as _);
+    }
+    #[test] #[should_panic]
+    #[cfg(feature = "unsize")]
+    fn push() {
+        let mut stack = StackA::<dyn Any, [u8; 16]>::new();
+        let _ = stack.push(123u32);
+    }
+    #[test] #[should_panic]
+    fn push_cloned() {
+        let mut stack = StackA::<[u32], [u8; 16]>::new();
+        let _ = stack.push_cloned(&[123u32]);
+    }
+    #[test] #[should_panic]
+    fn push_copied() {
+        let mut stack = StackA::<[u32], [u8; 16]>::new();
+        let _ = stack.push_copied(&[123u32]);
+    }
+    #[test] #[should_panic]
+    fn push_from_iter() {
+        let mut stack = StackA::<[u32], [u8; 16]>::new();
+        let _ = stack.push_from_iter(0..1);
+    }
+}

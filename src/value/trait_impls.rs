@@ -25,6 +25,11 @@ d! { ::core::iter::Iterator;
         (**self).next()
     }
 }
+d! { ::core::iter::DoubleEndedIterator;
+    fn next_back(&mut self) -> Option<Self::Item> {
+        (**self).next_back()
+    }
+}
 d! { ::core::iter::ExactSizeIterator;
 }
 

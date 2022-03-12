@@ -104,3 +104,43 @@ fn stable_closure_subset() {
     use std::fmt::Debug;
     let _ = Value8w::<dyn Debug>::new_stable((1, 2), |v| &v.0 as &dyn Debug);
 }
+
+// Various checks that ensure that any way of creating a structure also checks the alignment
+// - In the future, these would compile-error (using const-generics)
+#[cfg(not(feature="full_const_generics"))]
+mod unaligned {
+    use ::stack_dst::ValueA;
+    use ::std::any::Any;
+
+    #[test] #[should_panic]
+    fn new_stable() {
+        let _ = ValueA::<dyn Any, [u8; 16]>::new_stable(1234u32, |v| v);
+    }
+    #[test] #[should_panic]
+    fn in_buffer_stable() {
+        let _ = ValueA::<dyn Any, _>::in_buffer_stable([0u8; 16], 1234u32, |v| v);
+    }
+    #[test] #[should_panic]
+    #[cfg(feature="unsize")]
+    fn new() {
+        let _ = ValueA::<dyn Any, [u8; 16]>::new(1234u32);
+    }
+    #[test] #[should_panic]
+    #[cfg(feature="unsize")]
+    fn in_buffer() {
+        let _ = ValueA::<dyn Any, _>::in_buffer([0u8; 16], 1234u32);
+    }
+    #[test] #[should_panic]
+    #[cfg(feature="unsize")]
+    fn new_or_boxed() {
+        let _ = ValueA::<dyn Any, [u8; 16]>::new_or_boxed(1234u32);
+    }
+    #[test] #[should_panic]
+    fn empty_slice() {
+        let _ = ValueA::<[u32], [u8; 16]>::empty_slice();
+    }
+    #[test] #[should_panic]
+    fn empty_slice_with_buffer() {
+        let _ = ValueA::<[u32], _>::empty_slice_with_buffer([0u8; 16]);
+    }
+}
