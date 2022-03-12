@@ -32,6 +32,11 @@ macro_rules! impl_pod {
 }
 impl_pod! { u8, u16, u32, u64, u128, usize }
 
+//unsafe impl<T: Pod> Pod for ::core::mem::MaybeUninit<T> { }
+
+// DISABLED: This can allow users to read padding bytes, wich is UB.
+// Could be added only if the inner type is `MaybeUninit<T>`, but that doesn't impl `Default`
+#[cfg(false_)]
 unsafe impl<T: DataBuf> DataBuf for &mut T {
     type Inner = T::Inner;
     fn extend(&mut self, len: usize) -> Result<(), ()> {
