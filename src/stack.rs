@@ -62,41 +62,13 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
         D::round_to_words(mem::size_of::<&T>() - mem::size_of::<usize>())
     }
 
-    /// Returns the metadata and data slots
-    unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<(&mut [D::Inner], &mut [D::Inner]), ()> {
-        let bytes = mem::size_of_val(fat_ptr);
-        let words = D::round_to_words(bytes) + Self::meta_words();
-
-        let req_space = self.next_ofs + words;
-        // Attempt resize (if the underlying buffer allows it)
-        if req_space > self.data.as_ref().len() {
-            let old_len = self.data.as_ref().len();
-            if let Ok(_) = self.data.extend(req_space) {
-                let new_len = self.data.as_ref().len();
-                self.data.as_mut().rotate_right(new_len - old_len);
-            }
-        }
-
-        // Check if there is sufficient space for the new item
-        if req_space <= self.data.as_ref().len() {
-            // Get the base pointer for the new item
-            self.next_ofs += words;
-            let len = self.data.as_ref().len();
-            let slot = &mut self.data.as_mut()[len - self.next_ofs..][..words];
-            let (meta, rv) = slot.split_at_mut(Self::meta_words());
-
-            // Populate the metadata
-            let mut ptr_raw: *const T = fat_ptr;
-            super::store_metadata(meta, &crate::ptr_as_slice(&mut ptr_raw)[1..]);
-
-            // Increment offset and return
-            Ok((meta, rv))
-        } else {
-            Err(())
-        }
-    }
-
     /// Push a value at the top of the stack
+    ///
+    /// ```
+    /// # use stack_dst::StackA;
+    /// let mut stack = StackA::<[u8], [u64; 8]>::new();
+    /// stack.push([1, 2,3]);
+    /// ```
     #[cfg(feature = "unsize")]
     pub fn push<U: marker::Unsize<T>>(&mut self, v: U) -> Result<(), U>
     where
@@ -106,6 +78,12 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     }
 
     /// Push a value at the top of the stack (without using `Unsize`)
+    ///
+    /// ```
+    /// # use stack_dst::StackA;
+    /// let mut stack = StackA::<[u8], [u64; 8]>::new();
+    /// stack.push_stable([1, 2,3], |v| v);
+    /// ```
     pub fn push_stable<U, F: FnOnce(&U) -> &T>(&mut self, v: U, f: F) -> Result<(), U>
     where
         (U, D::Inner): crate::AlignmentValid,
@@ -115,8 +93,8 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
         // SAFE: Destination address is valid
         unsafe {
             match self.push_inner(crate::check_fat_pointer(&v, f)) {
-                Ok((_, d)) => {
-                    ptr::write(d.as_mut_ptr() as *mut U, v);
+                Ok(pii) => {
+                    ptr::write(pii.data.as_mut_ptr() as *mut U, v);
                     Ok(())
                 }
                 Err(_) => Err(v),
@@ -157,7 +135,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
                 ptr::drop_in_place(ptr);
                 D::round_to_words(size)
             };
-            self.next_ofs -= words + 1;
+            self.next_ofs -= words + Self::meta_words();
         }
     }
 
@@ -192,39 +170,135 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     }
 }
 
+struct PushInnerInfo<'a, DInner> {
+    /// Buffer for value data
+    data: &'a mut [DInner],
+    /// Buffer for metadata (length/vtable)
+    meta: &'a mut [DInner],
+    /// Memory location for resetting the push
+    reset_slot: &'a mut usize,
+    reset_value: usize,
+}
+impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
+
+    /// See `push_inner_raw`
+    unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<PushInnerInfo<D::Inner>, ()> {
+        let bytes = mem::size_of_val(fat_ptr);
+        let mut ptr_raw: *const T = fat_ptr;
+        self.push_inner_raw(bytes, &crate::ptr_as_slice(&mut ptr_raw)[1..])
+    }
+
+    /// Returns:
+    /// - metadata slot
+    /// - data slot
+    /// - Total words used
+    unsafe fn push_inner_raw(&mut self, bytes: usize, metadata: &[usize]) -> Result<PushInnerInfo<D::Inner>, ()> {
+        assert!( D::round_to_words(mem::size_of_val(metadata)) == Self::meta_words() );
+        let words = D::round_to_words(bytes) + Self::meta_words();
+
+        let req_space = self.next_ofs + words;
+        // Attempt resize (if the underlying buffer allows it)
+        if req_space > self.data.as_ref().len() {
+            let old_len = self.data.as_ref().len();
+            if let Ok(_) = self.data.extend(req_space) {
+                let new_len = self.data.as_ref().len();
+                self.data.as_mut().rotate_right(new_len - old_len);
+            }
+        }
+
+        // Check if there is sufficient space for the new item
+        if req_space <= self.data.as_ref().len() {
+            // Get the base pointer for the new item
+            let prev_next_ofs = self.next_ofs;
+            self.next_ofs += words;
+            let len = self.data.as_ref().len();
+            let slot = &mut self.data.as_mut()[len - self.next_ofs..][..words];
+            let (meta, rv) = slot.split_at_mut(Self::meta_words());
+
+            // Populate the metadata
+            super::store_metadata(meta, metadata);
+
+            // Increment offset and return
+            Ok(PushInnerInfo {
+                meta,
+                data: rv,
+                reset_slot: &mut self.next_ofs,
+                reset_value: prev_next_ofs
+                })
+        } else {
+            Err(())
+        }
+    }
+}
+
 impl<D: ::DataBuf> StackA<str, D> {
     /// Push the contents of a string slice as an item onto the stack
+    ///
+    /// ```
+    /// # use stack_dst::StackA;
+    /// let mut stack = StackA::<str, [u64; 8]>::new();
+    /// stack.push_str("Hello!");
+    /// ```
     pub fn push_str(&mut self, v: &str) -> Result<(), ()> {
         unsafe {
             self.push_inner(v)
-                .map(|(_, d)| ptr::copy(v.as_bytes().as_ptr(), d.as_mut_ptr() as *mut u8, v.len()))
+                .map(|pii| ptr::copy(v.as_bytes().as_ptr(), pii.data.as_mut_ptr() as *mut u8, v.len()))
         }
     }
 }
 impl<D: ::DataBuf, T: Clone> StackA<[T], D> {
     /// Pushes a set of items (cloning out of the input slice)
+    ///
+    /// ```
+    /// # use stack_dst::StackA;
+    /// let mut stack = StackA::<[u8], [u64; 8]>::new();
+    /// stack.push_cloned(&[1,2,3]);
+    /// ```
     pub fn push_cloned(&mut self, v: &[T]) -> Result<(), ()> {
-        unsafe {
-            let (meta, d) = self.push_inner(v)?;
-            crate::list_push_cloned(meta, d, v);
-        }
-
-        Ok(())
+        self.push_from_iter(v.iter().cloned())
     }
     /// Pushes a set of items (copying out of the input slice)
+    ///
+    /// ```
+    /// # use stack_dst::StackA;
+    /// let mut stack = StackA::<[u8], [u64; 8]>::new();
+    /// stack.push_copied(&[1, 2,3]);
+    /// ```
     pub fn push_copied(&mut self, v: &[T]) -> Result<(), ()>
     where
         T: Copy,
     {
         // SAFE: Carefully constructed to maintain consistency
         unsafe {
-            self.push_inner(v).map(|(_, d)| {
+            self.push_inner(v).map(|pii| {
                 ptr::copy(
                     v.as_ptr() as *const u8,
-                    d.as_mut_ptr() as *mut u8,
+                    pii.data.as_mut_ptr() as *mut u8,
                     mem::size_of_val(v),
                 )
             })
+        }
+    }
+}
+impl<D: crate::DataBuf, T> StackA<[T], D>
+{
+    /// Push an item, populated from an exact-sized iterator
+    /// 
+    /// ```
+    /// # extern crate core;
+    /// # use stack_dst::StackA;
+    /// # use core::fmt::Display;
+    /// 
+    /// let mut stack = StackA::<[u8], [usize; 8]>::new();
+    /// stack.push_from_iter(0..10);
+    /// assert_eq!(stack.top().unwrap(), &[0,1,2,3,4,5,6,7,8,9]);
+    /// ```
+    pub fn push_from_iter(&mut self, mut iter: impl ExactSizeIterator<Item=T>)->Result<(),()> {
+        // SAFE: API used correctly
+        unsafe {
+            let pii = self.push_inner_raw(iter.len() * mem::size_of::<T>(), &[0])?;
+            crate::list_push_gen(pii.meta, pii.data, iter.len(), |_| iter.next().unwrap(), pii.reset_slot, pii.reset_value);
+            Ok( () )
         }
     }
 }

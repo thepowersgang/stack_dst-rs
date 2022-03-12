@@ -142,3 +142,35 @@ fn slice_push_panic_safety() {
     }));
     assert_eq!(COUNT.load(Ordering::SeqCst), 1);
 }
+
+#[test]
+// Check that panic safety is maintained, even if the datatype isn't aligned to usize
+fn slice_push_panic_safety_unaligned() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static COUNT: AtomicUsize = AtomicUsize::new(0);
+    struct Sentinel(bool);
+    impl Clone for Sentinel {
+        fn clone(&self) -> Self {
+            if ! self.0 {
+                panic!();
+            } else {
+                Sentinel(self.0)
+            }
+        }
+    }
+    impl Drop for Sentinel {
+        fn drop(&mut self) {
+            COUNT.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+    let input = [
+        // 1 good followed by one bad
+        Sentinel(true), Sentinel(false)
+        ];
+
+    let _ = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
+        let mut stack = ::stack_dst::StackA::<[Sentinel], _>::with_buffer([0xFFu8; 32]);
+        let _ = stack.push_cloned(&input);
+    }));
+    assert_eq!(COUNT.load(Ordering::SeqCst), 1);
+}

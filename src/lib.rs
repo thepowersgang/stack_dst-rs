@@ -108,6 +108,7 @@ fn ptr_as_slice<T: ?Sized>(ptr: &mut *const T) -> &mut [usize] {
 }
 fn mem_as_slice<T>(ptr: &mut T) -> &mut [usize] {
     assert!(mem::size_of::<T>() % mem::size_of::<usize>() == 0);
+    assert!(mem::align_of::<T>() % mem::align_of::<usize>() == 0);
     let words = mem::size_of::<T>() / mem::size_of::<usize>();
     // SAFE: Points to valid memory (a raw pointer)
     unsafe { slice::from_raw_parts_mut(ptr as *mut _ as *mut usize, words) }
@@ -133,7 +134,8 @@ unsafe fn make_fat_ptr<T: ?Sized, W: Copy>(data_ptr: usize, meta_vals: &[W]) -> 
 /// Write metadata (abstraction around `ptr::copy`)
 fn store_metadata<W: Copy>(dst: &mut [W], meta_words: &[usize]) {
     let n_bytes = meta_words.len() * mem::size_of::<usize>();
-    assert!(n_bytes <= dst.len() * mem::size_of::<W>());
+    assert!(n_bytes <= dst.len() * mem::size_of::<W>(),
+        "nbytes [{}] <= dst.len() [{}] * sizeof [{}]", n_bytes, dst.len(), mem::size_of::<W>());
     unsafe {
         ptr::copy(
             meta_words.as_ptr() as *const u8,
@@ -162,23 +164,49 @@ fn check_fat_pointer<U, T: ?Sized>(v: &U, get_ref: impl FnOnce(&U) -> &T) -> &T 
     ptr
 }
 
-unsafe fn list_push_cloned<T: Clone, W: Copy + Default>(meta: &mut [W], data: &mut [W], v: &[T]) {
-    // Prepare the slot with zeros (as if it's an empty slice)
-    // The length is updated as each item is written
-    // - This ensures that there's no drop issues during write
-    // - If a panic occurs, the drop will pop a bunch of empty lists after this one
-    assert!(mem::size_of_val(v) <= mem::size_of_val(data));
-    crate::store_metadata(meta, &[0]);
-    for v in data.iter_mut() {
-        *v = Default::default();
+/// Push items to a list using a generator function to get the items
+/// - `meta`  - Metadata slot (must be 1 usize long)
+/// - `data`  - Data slot, must be at least `count * sizeof(T)` long
+/// - `count` - Number of items to insert
+/// - `gen`   - Generator function (is passed the current index)
+/// - `reset_slot` - A slot updated with `reset_value` when a panic happens before push is complete
+/// - `reset_value` - Value used in `reset_slot`
+///
+/// This provides a panic-safe push as long as `reset_slot` and `reset_value` undo the allocation operation
+unsafe fn list_push_gen<T, W: Copy + Default>(meta: &mut [W], data: &mut [W], count: usize, mut gen: impl FnMut(usize)->T, reset_slot: &mut usize, reset_value: usize)
+{
+    /// Helper to drop/zero all pushed items, and reset data structure state if there's a panic
+    struct PanicState<'a, T>(*mut T, usize, &'a mut usize, usize);
+    impl<'a, T> ::core::ops::Drop for PanicState<'a, T> {
+        fn drop(&mut self) {
+            if self.0.is_null() {
+                return ;
+            }
+            // Reset the state of the data structure (leaking items)
+            *self.2 = self.3;
+            // Drop all partially-populated items
+            unsafe {
+                while self.1 != 0 {
+                    ptr::drop_in_place(&mut *self.0);
+                    ptr::write_bytes(self.0 as *mut u8, 0, mem::size_of::<T>());
+                    self.0 = self.0.offset(1);
+                    self.1 -= 1;
+                }
+            }
+        }
     }
 
     let mut ptr = data.as_mut_ptr() as *mut T;
-    for (i, val) in v.iter().enumerate() {
-        ptr::write(ptr, val.clone());
-        crate::store_metadata(meta, &[1 + i]);
+    let mut clr = PanicState(ptr, 0, reset_slot, reset_value);
+    for i in 0 .. count {
+        let val = gen(i);
+        ptr::write(ptr, val);
         ptr = ptr.offset(1);
+        clr.1 += 1;
     }
+    clr.0 = ptr::null_mut();    // Prevent drops and prevent reset
+    // Save the length once everything has been written
+    crate::store_metadata(meta, &[count]);
 }
 
 /// Marker trait used to check alignment
