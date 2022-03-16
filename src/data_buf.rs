@@ -14,6 +14,7 @@
 pub unsafe trait DataBuf: AsMut<[Self::Inner]> + AsRef<[Self::Inner]> {
     /// Inner type of the buffer
     type Inner: Pod;
+
     /// Extend the buffer (fallible)
     fn extend(&mut self, len: usize) -> Result<(), ()>;
 

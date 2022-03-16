@@ -103,12 +103,12 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
         <(U, D::Inner) as crate::AlignmentValid>::check();
 
         let rv = unsafe {
-            let mut ptr: *const _ = crate::check_fat_pointer(&val, get_ref);
-            let words = super::ptr_as_slice(&mut ptr);
+            let ptr: *const _ = crate::check_fat_pointer(&val, get_ref);
+            let (raw_ptr, meta_len, meta) = super::decompose_pointer(ptr);
 
             ValueA::new_raw(
-                &words[1..],
-                words[0] as *mut (),
+                &meta[..meta_len],
+                raw_ptr as *mut _,
                 mem::size_of::<U>(),
                 buffer,
             )
@@ -185,11 +185,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
             crate::store_metadata(info_dst, info);
         }
 
-        let src_ptr = data as *const u8;
-        let dataptr = buf.as_mut_ptr() as *mut u8;
-        for i in 0..size {
-            *dataptr.add(i) = *src_ptr.add(i);
-        }
+        ptr::copy_nonoverlapping(data as *const u8, buf.as_mut_ptr() as *mut u8, size);
     }
 
     /// Replace the contents without dropping the backing allocation
@@ -210,9 +206,8 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
         <(U, D::Inner) as crate::AlignmentValid>::check();
 
         let size = mem::size_of::<U>();
-        let mut ptr: *const _ = crate::check_fat_pointer(&val, get_ref);
-        let words = super::ptr_as_slice(&mut ptr);
-        let info = &words[1..];
+        let (raw_ptr, meta_len, meta) = super::decompose_pointer( crate::check_fat_pointer(&val, get_ref) );
+        let info = &meta[..meta_len];
 
         // Check size requirements (allow resizing)
         let req_words = D::round_to_words(mem::size_of_val(info)) + D::round_to_words(size);
@@ -222,7 +217,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
         // If met, drop the existing item and move in the new item
         unsafe {
             ptr::drop_in_place::<T>(&mut **self);
-            self.write_value(&val as *const _ as *const (), mem::size_of::<U>(), info);
+            self.write_value(raw_ptr, mem::size_of::<U>(), info);
         }
         Ok( () )
     }
@@ -244,14 +239,24 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
         U: marker::Unsize<T>,
     {
         self.replace_stable(val, |v| v)
-    }   
+    }
 
     /// Obtain raw pointer to the contained data
     unsafe fn as_ptr(&self) -> *mut T {
         let data = self.data.as_ref();
         let info_size = mem::size_of::<*mut T>() / mem::size_of::<usize>() - 1;
         let info_ofs = data.len() - D::round_to_words(info_size * mem::size_of::<usize>());
-        super::make_fat_ptr(data[..].as_ptr() as usize, &data[info_ofs..])
+        let (data, meta) = data.split_at(info_ofs);
+        super::make_fat_ptr(data.as_ptr() as *mut (), meta)
+    }
+
+    /// Obtain raw pointer to the contained data
+    unsafe fn as_ptr_mut(&mut self) -> *mut T {
+        let data = self.data.as_mut();
+        let info_size = mem::size_of::<*mut T>() / mem::size_of::<usize>() - 1;
+        let info_ofs = data.len() - D::round_to_words(info_size * mem::size_of::<usize>());
+        let (data, meta) = data.split_at_mut(info_ofs);
+        super::make_fat_ptr(data.as_mut_ptr() as *mut (), meta)
     }
 }
 /// Specialisations for `str` (allowing storage of strings with single-byte alignment)
@@ -267,12 +272,11 @@ impl<D: ::DataBuf> ValueA<str, D> {
     pub fn empty_str_in_buffer(buffer: D) -> Result<Self,()>
     {
         let rv = unsafe {
-            let mut ptr: *const str = "";
-            let words = super::ptr_as_slice(&mut ptr);
+            let (raw_ptr, meta_len, meta) = super::decompose_pointer("");
 
             ValueA::new_raw(
-                &words[1..],
-                words[0] as *mut (),
+                &meta[..meta_len],
+                raw_ptr as *mut (),
                 0,
                 buffer,
             )
@@ -308,12 +312,11 @@ impl<D: ::DataBuf> ValueA<str, D> {
     pub fn new_str_in_buffer(buffer: D, val: &str) -> Result<Self,&str>
     {
         let rv = unsafe {
-            let mut ptr: *const str = val;
-            let words = super::ptr_as_slice(&mut ptr);
+            let (raw_ptr, meta_len, meta) = super::decompose_pointer(val);
 
             ValueA::new_raw(
-                &words[1..],
-                words[0] as *mut (),
+                &meta[..meta_len],
+                raw_ptr as *mut (),
                 mem::size_of_val(val),
                 buffer,
             )
@@ -492,7 +495,7 @@ impl<T: ?Sized, D: ::DataBuf> ops::Deref for ValueA<T, D> {
 }
 impl<T: ?Sized, D: ::DataBuf> ops::DerefMut for ValueA<T, D> {
     fn deref_mut(&mut self) -> &mut T {
-        unsafe { &mut *self.as_ptr() }
+        unsafe { &mut *self.as_ptr_mut() }
     }
 }
 impl<T: ?Sized, D: ::DataBuf> ops::Drop for ValueA<T, D> {

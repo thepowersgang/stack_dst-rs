@@ -106,7 +106,16 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
         let dar = self.data.as_ref();
         let meta = &dar[dar.len() - ofs..];
         let mw = Self::meta_words();
-        super::make_fat_ptr(meta[mw..].as_ptr() as usize, &meta[..mw])
+        let (meta, data) = meta.split_at(mw);
+        super::make_fat_ptr(data.as_ptr() as *mut (), meta)
+    }
+    unsafe fn raw_at_mut(&mut self, ofs: usize) -> *mut T {
+        let dar = self.data.as_mut();
+        let ofs = dar.len() - ofs;
+        let meta = &mut dar[ofs..];
+        let mw = Self::meta_words();
+        let (meta, data) = meta.split_at_mut(mw);
+        super::make_fat_ptr(data.as_mut_ptr() as *mut (), meta)
     }
     // Get a raw pointer to the top of the stack
     fn top_raw(&self) -> Option<*mut T> {
@@ -117,17 +126,26 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
             Some(unsafe { self.raw_at(self.next_ofs) })
         }
     }
+    // Get a raw pointer to the top of the stack
+    fn top_raw_mut(&mut self) -> Option<*mut T> {
+        if self.next_ofs == 0 {
+            None
+        } else {
+            // SAFE: Internal consistency maintains the metadata validity
+            Some(unsafe { self.raw_at_mut(self.next_ofs) })
+        }
+    }
     /// Returns a pointer to the top item on the stack
     pub fn top(&self) -> Option<&T> {
         self.top_raw().map(|x| unsafe { &*x })
     }
     /// Returns a pointer to the top item on the stack (unique/mutable)
     pub fn top_mut(&mut self) -> Option<&mut T> {
-        self.top_raw().map(|x| unsafe { &mut *x })
+        self.top_raw_mut().map(|x| unsafe { &mut *x })
     }
     /// Pop the top item off the stack
     pub fn pop(&mut self) {
-        if let Some(ptr) = self.top_raw() {
+        if let Some(ptr) = self.top_raw_mut() {
             assert!(self.next_ofs > 0);
             // SAFE: Pointer is valid, and will never be accessed after this point
             let words = unsafe {
@@ -184,8 +202,8 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     /// See `push_inner_raw`
     unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<PushInnerInfo<D::Inner>, ()> {
         let bytes = mem::size_of_val(fat_ptr);
-        let mut ptr_raw: *const T = fat_ptr;
-        self.push_inner_raw(bytes, &crate::ptr_as_slice(&mut ptr_raw)[1..])
+        let (_data_ptr, len, v) = crate::decompose_pointer(fat_ptr);
+        self.push_inner_raw(bytes, &v[..len])
     }
 
     /// Returns:
@@ -336,7 +354,7 @@ impl<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> iter::Iterator for IterMut<'a, 
             None
         } else {
             // SAFE: Bounds checked, aliasing enforced by API
-            let rv = unsafe { &mut *self.0.raw_at(self.1) };
+            let rv = unsafe { &mut *self.0.raw_at_mut(self.1) };
             self.1 -= StackA::<T, D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
             Some(rv)
         }

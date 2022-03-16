@@ -100,7 +100,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
         if self.read_pos == self.write_pos {
             None
         } else {
-            Some(unsafe { &mut *self.front_raw() })
+            Some(unsafe { &mut *self.front_raw_mut() })
         }
     }
     /// Peek the front of the queue
@@ -156,12 +156,28 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
         assert!(pos < self.write_pos);
         let meta = &self.data.as_ref()[pos..];
         let mw = Self::meta_words();
-        super::make_fat_ptr(meta[mw..].as_ptr() as usize, &meta[..mw])
+        let (meta, data) = meta.split_at(mw);
+        super::make_fat_ptr(data.as_ptr() as *mut (), meta)
+    }
+    fn front_raw_mut(&mut self) -> *mut T {
+        assert!(self.read_pos < self.write_pos);
+
+        // SAFE: Internal consistency maintains the metadata validity
+        unsafe { self.raw_at_mut(self.read_pos) }
+    }
+    // UNSAFE: Caller must ensure that `pos` is the start of an object
+    unsafe fn raw_at_mut(&mut self, pos: usize) -> *mut T {
+        assert!(pos >= self.read_pos);
+        assert!(pos < self.write_pos);
+        let meta = &mut self.data.as_mut()[pos..];
+        let mw = Self::meta_words();
+        let (meta, data) = meta.split_at_mut(mw);
+        super::make_fat_ptr(data.as_mut_ptr() as *mut (), meta)
     }
     fn pop_front_inner(&mut self) {
-        // SAFE: `front_raw` asserts that there's an item, rest is correct
+        // SAFE: `front_raw_mut` asserts that there's an item, rest is correct
         unsafe {
-            let ptr = &mut *self.front_raw();
+            let ptr = &mut *self.front_raw_mut();
             let len = mem::size_of_val(ptr);
             ptr::drop_in_place(ptr);
             let words = D::round_to_words(len);
@@ -186,8 +202,8 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D>
     /// UNSAFE: Caller must fill the buffer before any potential panic
     unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<PushInnerInfo<D::Inner>, ()> {
         let bytes = mem::size_of_val(fat_ptr);
-        let mut ptr_raw: *const T = fat_ptr;
-        self.push_inner_raw(bytes, &crate::ptr_as_slice(&mut ptr_raw)[1..])
+        let (_data_ptr, len, v) = crate::decompose_pointer(fat_ptr);
+        self.push_inner_raw(bytes, &v[..len])
     }
     unsafe fn push_inner_raw(&mut self, bytes: usize, metadata: &[usize]) -> Result<PushInnerInfo<D::Inner>, ()> {
         let words = D::round_to_words(bytes) + Self::meta_words();
@@ -325,7 +341,7 @@ impl<'a, T: ?Sized, D: crate::DataBuf> ops::Deref for PopHandle<'a, T, D> {
 }
 impl<'a, T: ?Sized, D: crate::DataBuf> ops::DerefMut for PopHandle<'a, T, D> {
     fn deref_mut(&mut self) -> &mut T {
-        unsafe { &mut *self.parent.front_raw() }
+        unsafe { &mut *self.parent.front_raw_mut() }
     }
 }
 impl<'a, T: ?Sized, D: crate::DataBuf> ops::Drop for PopHandle<'a, T, D> {
@@ -358,7 +374,7 @@ impl<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> iter::Iterator for IterMut<'a, 
             None
         } else {
             // SAFE: Bounds checked, aliasing enforced by API
-            let rv = unsafe { &mut *self.0.raw_at(self.1) };
+            let rv = unsafe { &mut *self.0.raw_at_mut(self.1) };
             self.1 += FifoA::<T, D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
             Some(rv)
         }

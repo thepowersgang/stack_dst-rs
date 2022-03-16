@@ -68,6 +68,11 @@
 #![deny(missing_docs)]
 use core::{mem, ptr, slice};
 
+
+#[cfg(miri)]
+#[macro_use]
+extern crate std;
+
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
@@ -75,12 +80,12 @@ mod data_buf;
 pub use self::data_buf::DataBuf;
 pub use self::data_buf::Pod;
 
-pub use list::FifoA;
+pub use fifo::FifoA;
 pub use stack::StackA;
 pub use value::ValueA;
 
 /// Implementation of the FIFO list structure
-pub mod list;
+pub mod fifo;
 /// Implementation of the LIFO stack structure
 pub mod stack;
 /// Implementation of the single-value structure
@@ -96,16 +101,18 @@ pub type Value<T /*: ?Sized*/, const N: usize /* = {8+1}*/> = ValueA<T, [usize; 
 /// A FIFO queue of DSTs
 pub type Fifo<T /*: ?Sized*/, const N: usize /* = {8+1}*/> = FifoA<T, [usize; N]>;
 
-/// Obtain mutable access to a pointer's words
-fn ptr_as_slice<T: ?Sized>(ptr: &mut *const T) -> &mut [usize] {
-    let addr = *ptr as *const u8 as usize;
-    let rv = mem_as_slice(ptr);
+fn decompose_pointer<T: ?Sized>(mut ptr: *const T) -> (*const (), usize, [usize; 3]) {
+    let addr = ptr as *const ();
+    let rv = mem_as_slice(&mut ptr);
+    let mut vals = [0; 3];
     assert!(
-        rv[0] == addr,
+        rv[0] == addr as usize,
         "BUG: Pointer layout is not (data_ptr, info...)"
     );
-    rv
+    vals[..rv.len()-1].copy_from_slice(&rv[1..]);
+    (addr, rv.len()-1, vals,)
 }
+
 fn mem_as_slice<T>(ptr: &mut T) -> &mut [usize] {
     assert!(mem::size_of::<T>() % mem::size_of::<usize>() == 0);
     assert!(mem::align_of::<T>() % mem::align_of::<usize>() == 0);
@@ -115,19 +122,26 @@ fn mem_as_slice<T>(ptr: &mut T) -> &mut [usize] {
 }
 
 /// Re-construct a fat pointer
-unsafe fn make_fat_ptr<T: ?Sized, W: Copy>(data_ptr: usize, meta_vals: &[W]) -> *mut T {
-    // I'd love to use a union, but can't get the right array size for it.
-    let mut rv = mem::MaybeUninit::<*mut T>::uninit();
-    {
-        let s = mem_as_slice(&mut rv);
-        s[0] = data_ptr;
-        ptr::copy(
-            meta_vals.as_ptr() as *const u8,
-            s[1..].as_mut_ptr() as *mut u8,
-            (s.len() - 1) * mem::size_of::<usize>(),
-        );
+unsafe fn make_fat_ptr<T: ?Sized, W: Pod>(data_ptr: *mut (), meta_vals: &[W]) -> *mut T {
+    #[repr(C)]
+    #[derive(Copy,Clone)]
+    struct Raw {
+        ptr: *const (),
+        meta: [usize; 4],
     }
-    let rv = rv.assume_init();
+    union Inner<T: ?Sized> {
+        ptr: *mut T,
+        raw: Raw,
+    }
+    let mut rv = Inner { raw: Raw { ptr: data_ptr, meta: [0; 4] } };
+    assert!(meta_vals.len() * mem::size_of::<W>() % mem::size_of::<usize>() == 0);
+    assert!(meta_vals.len() * mem::size_of::<W>() <= 4 * mem::size_of::<usize>());
+    ptr::copy(
+        meta_vals.as_ptr() as *const u8,
+        rv.raw.meta.as_mut_ptr() as *mut u8,
+        meta_vals.len() * mem::size_of::<W>()
+        );
+    let rv = rv.ptr;
     assert_eq!(rv as *const (), data_ptr as *const ());
     rv
 }

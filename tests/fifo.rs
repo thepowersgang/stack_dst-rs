@@ -31,8 +31,7 @@ fn slice_push_panic_safety() {
     }
     impl Drop for Sentinel {
         fn drop(&mut self) {
-            let _v = COUNT.fetch_add(1, Ordering::SeqCst);
-            //assert!( _v == 0 );
+            COUNT.fetch_add(1, Ordering::SeqCst);
         }
     }
     let input = [Sentinel(false), Sentinel(true)];
