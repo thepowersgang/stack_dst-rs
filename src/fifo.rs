@@ -184,6 +184,69 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
             self.read_pos += Self::meta_words() + words;
         }
     }
+
+
+    /// Remove any items that don't meet a predicate
+    ///
+    /// ```
+    /// # extern crate core;
+    /// use stack_dst::FifoA;
+    /// use core::any::Any;
+    /// use core::fmt::Debug;
+    /// trait DebugAny: 'static + Any + Debug { fn as_any(&self) -> &dyn Any; }
+    /// impl<T: Debug + Any + 'static> DebugAny for T { fn as_any(&self) -> &dyn Any { self } }
+    /// let mut list = {
+    ///     let mut list: FifoA<dyn DebugAny, [usize; 16]> = FifoA::new();
+    ///     list.push_back(1234);
+    ///     list.push_back(234.5f32);
+    ///     list.push_back(5678);
+    ///     list.push_back(0.5f32);
+    ///     list
+    ///     };
+    /// list.retain(|v| (*v).as_any().downcast_ref::<f32>().is_some());
+    /// let mut it = list.iter().map(|v| format!("{:?}", v));
+    /// assert_eq!(it.next().as_deref(), Some("234.5"));
+    /// assert_eq!(it.next().as_deref(), Some("0.5"));
+    /// assert_eq!(it.next(), None);
+    /// ```
+    pub fn retain<Cb>(&mut self, mut cb: Cb)
+    where
+        Cb: FnMut(&mut T)->bool
+    {
+        let orig_write_pos = self.write_pos;
+        self.write_pos = self.read_pos;
+        let mut ofs = self.read_pos;
+        let mut writeback_pos = ofs;
+        while ofs < orig_write_pos
+        {
+            let v: &mut T = unsafe {
+                let meta = &mut self.data.as_mut()[ofs..];
+                let mw = Self::meta_words();
+                let (meta, data) = meta.split_at_mut(mw);
+                &mut *super::make_fat_ptr(data.as_mut_ptr() as *mut (), meta)
+                };
+            let words = Self::meta_words() + D::round_to_words(mem::size_of_val(v));
+            if cb(v) {
+                if writeback_pos != ofs {
+                    let src: *const _ = self.data.as_ref()[ofs..].as_ptr();
+                    let dst: *mut _ = self.data.as_mut()[writeback_pos..].as_mut_ptr();
+                    // SAFE: Pointers are valid, length is correct
+                    unsafe { ptr::copy(src, dst, words); }
+                }
+                writeback_pos += words;
+            }
+            else {
+                // Don't update `writeback_pos`
+                // SAFE: Valid pointer, won't be accessed again
+                unsafe {
+                    ptr::drop_in_place(v);
+                }
+            }
+            ofs += words;
+        }
+        assert!(ofs == orig_write_pos);
+        self.write_pos = writeback_pos;
+    }
 }
 
 struct PushInnerInfo<'a, DInner> {
