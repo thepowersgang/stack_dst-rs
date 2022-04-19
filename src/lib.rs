@@ -12,7 +12,7 @@
 //! # use std::any::Any;
 //! # use stack_dst::ValueA;
 //! #
-//! let dst = ValueA::<dyn Any, [usize; 2]>::new_stable(1234u64, |p| p as _)
+//! let dst = ValueA::<dyn Any, ::stack_dst::buffers::Ptr2>::new_stable(1234u64, |p| p as _)
 //!     .ok().expect("Integer did not fit in allocation");
 //! println!("dst as u64 = {:?}", dst.downcast_ref::<u64>());
 //! println!("dst as i8 = {:?}", dst.downcast_ref::<i8>());
@@ -24,7 +24,7 @@
 //! ```rust
 //! # use stack_dst::ValueA;
 //! #
-//! fn make_closure(value: u64) -> ValueA<dyn FnMut()->String, [usize; 3]> {
+//! fn make_closure(value: u64) -> ValueA<dyn FnMut()->String, ::stack_dst::array_buf![u64; U2]> {
 //!     ValueA::new_stable(move || format!("Hello there! value={}", value), |p| p as _)
 //!         .ok().expect("Closure doesn't fit")
 //! }
@@ -39,13 +39,13 @@
 //! ```should_panic
 //! # use stack_dst::ValueA;
 //! # use std::any::Any;
-//! let v: ValueA<dyn Any, [u32; 6]> = ValueA::new_stable(123i128, |p| p as _).unwrap();
+//! let v: ValueA<dyn Any, ::stack_dst::buffers::U8_32> = ValueA::new_stable(123i128, |p| p as _).unwrap();
 //! ```
 //! This works, because the backing buffer has sufficient alignment
 //! ```rust
 //! # use stack_dst::ValueA;
 //! # use std::any::Any;
-//! let v: ValueA<dyn Any, [u128; 2]> = ValueA::new_stable(123i128, |p| p as _).unwrap();
+//! let v: ValueA<dyn Any, ::stack_dst::array_buf![u128; U2]> = ValueA::new_stable(123i128, |p| p as _).unwrap();
 //! ```
 //!
 //! # Features
@@ -66,8 +66,12 @@
 #![cfg_attr(feature = "full_const_generics", allow(incomplete_features))]
 #![no_std]
 #![deny(missing_docs)]
-use core::{mem, ptr, slice};
 
+use core::{mem, ptr, slice};
+use ::core::mem::MaybeUninit;
+
+// Internal helper
+type BufSlice<T> = [MaybeUninit<T>];
 
 #[cfg(miri)]
 #[macro_use]
@@ -76,6 +80,8 @@ extern crate std;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+extern crate generic_array;
+
 mod data_buf;
 pub use self::data_buf::DataBuf;
 pub use self::data_buf::Pod;
@@ -83,6 +89,104 @@ pub use self::data_buf::Pod;
 pub use fifo::FifoA;
 pub use stack::StackA;
 pub use value::ValueA;
+
+/// Shorthand for defining a array buffer
+/// 
+/// The array size must be a typenum unsigned integer (e.g `U8`)
+/// E.g. `array_buf![u8; U32]` expands to `::stack_dst::buffers::ArrayBuf<u8, ::stack_dst::buffers::n::::U32>`
+#[macro_export]
+macro_rules! array_buf {
+    ($t:ty; $n:ident) => { $crate::buffers::ArrayBuf<$t, $crate::buffers::n::$n> }
+}
+
+/// Type aliases for common buffer sizes and types
+/// 
+/// Some useful suggestions
+/// - [Ptr8] is the semi-standard buffer for holding a single object (a good balance of space used)
+/// - [Ptr2] is suitable for storing a single pointer and its vtable
+pub mod buffers {
+    use ::core::mem::MaybeUninit;
+
+    /// A re-export of `typenum` for shorter names
+    pub use ::generic_array::typenum as n;
+    /// A buffer backing onto an array (used to provide default)
+    pub struct ArrayBuf<T, N>
+    where
+        N: ::generic_array::ArrayLength<MaybeUninit<T>>,
+    {
+        inner: ::generic_array::GenericArray<MaybeUninit<T>, N>,
+    }
+    impl<T, N> AsRef<crate::BufSlice<T>> for ArrayBuf<T, N>
+    where
+        N: ::generic_array::ArrayLength<MaybeUninit<T>>,
+    {
+        fn as_ref(&self) -> &crate::BufSlice<T> {
+            &self.inner
+        }
+    }
+    impl<T, N> AsMut<crate::BufSlice<T>> for ArrayBuf<T, N>
+    where
+        N: ::generic_array::ArrayLength<MaybeUninit<T>>,
+    {
+        fn as_mut(&mut self) -> &mut crate::BufSlice<T> {
+            &mut self.inner
+        }
+    }
+    impl<T, N> ::core::default::Default for ArrayBuf<T, N>
+    where
+        N: ::generic_array::ArrayLength<MaybeUninit<T>>,
+    {
+        fn default() -> Self {
+            ArrayBuf {
+                // `unwarp` won't fail, lengths match
+                inner: ::generic_array::GenericArray::from_exact_iter( (0 .. N::USIZE).map(|_| MaybeUninit::uninit()) ).unwrap(),
+            }
+        }
+    }
+    unsafe impl<T,N> crate::DataBuf for ArrayBuf<T, N>
+    where
+        T: crate::Pod,
+        N: ::generic_array::ArrayLength<MaybeUninit<T>>,
+    {
+        type Inner = T;
+        fn extend(&mut self, len: usize) -> Result<(), ()> {
+            if len > N::USIZE {
+                Err( () )
+            }
+            else {
+                Ok( () )
+            }
+        }
+    }
+
+    /// 8 pointers (32/64 bytes, with pointer alignment)
+    pub type Ptr8 = ArrayBuf<*const (), n::U8>;
+    /// 64 bytes, 64-bit alignment
+    pub type U64_8 = ArrayBuf<u64, n::U8>;
+    /// 32 bytes, 8-bit alignment
+    pub type U8_32 = ArrayBuf<u8, n::U32>;
+
+    /// 16 bytes, 64-bit alignment
+    pub type U64_2 = ArrayBuf<u64, n::U2>;
+    
+    /// 16 pointers (64/128 bytes, with pointer alignment)
+    pub type Ptr16 = ArrayBuf<*const (), n::U16>;
+    
+    /// Two pointers, useful for wrapping a pointer along with a vtable
+    pub type Ptr2 = ArrayBuf<*const (), n::U2>;
+    /// One pointer, can only store the vtable
+    pub type Ptr1 = ArrayBuf<*const (), n::U1>;
+
+    /// Dyanamically allocated buffer with 8-byte alignment
+    #[cfg(feature="alloc")]
+    pub type U64Vec = ::alloc::vec::Vec<MaybeUninit<u64>>;
+    /// Dyanamically allocated buffer with 1-byte alignment
+    #[cfg(feature="alloc")]
+    pub type U8Vec = ::alloc::vec::Vec<MaybeUninit<u8>>;
+    /// Dyanamically allocated buffer with pointer alignment
+    #[cfg(feature="alloc")]
+    pub type PtrVec = ::alloc::vec::Vec<MaybeUninit<*const ()>>;
+}
 
 /// Implementation of the FIFO list structure
 pub mod fifo;
@@ -122,7 +226,7 @@ fn mem_as_slice<T>(ptr: &mut T) -> &mut [usize] {
 }
 
 /// Re-construct a fat pointer
-unsafe fn make_fat_ptr<T: ?Sized, W: Pod>(data_ptr: *mut (), meta_vals: &[W]) -> *mut T {
+unsafe fn make_fat_ptr<T: ?Sized, W: Pod>(data_ptr: *mut (), meta_vals: &BufSlice<W>) -> *mut T {
     #[repr(C)]
     #[derive(Copy,Clone)]
     struct Raw {
@@ -146,7 +250,7 @@ unsafe fn make_fat_ptr<T: ?Sized, W: Pod>(data_ptr: *mut (), meta_vals: &[W]) ->
     rv
 }
 /// Write metadata (abstraction around `ptr::copy`)
-fn store_metadata<W: Copy>(dst: &mut [W], meta_words: &[usize]) {
+fn store_metadata<W: Pod>(dst: &mut BufSlice<W>, meta_words: &[usize]) {
     let n_bytes = meta_words.len() * mem::size_of::<usize>();
     assert!(n_bytes <= dst.len() * mem::size_of::<W>(),
         "nbytes [{}] <= dst.len() [{}] * sizeof [{}]", n_bytes, dst.len(), mem::size_of::<W>());
@@ -187,7 +291,7 @@ fn check_fat_pointer<U, T: ?Sized>(v: &U, get_ref: impl FnOnce(&U) -> &T) -> &T 
 /// - `reset_value` - Value used in `reset_slot`
 ///
 /// This provides a panic-safe push as long as `reset_slot` and `reset_value` undo the allocation operation
-unsafe fn list_push_gen<T, W: Copy + Default>(meta: &mut [W], data: &mut [W], count: usize, mut gen: impl FnMut(usize)->T, reset_slot: &mut usize, reset_value: usize)
+unsafe fn list_push_gen<T, W: Pod>(meta: &mut BufSlice<W>, data: &mut BufSlice<W>, count: usize, mut gen: impl FnMut(usize)->T, reset_slot: &mut usize, reset_value: usize)
 {
     /// Helper to drop/zero all pushed items, and reset data structure state if there's a panic
     struct PanicState<'a, T>(*mut T, usize, &'a mut usize, usize);

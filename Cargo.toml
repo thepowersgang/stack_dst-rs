@@ -21,3 +21,6 @@ const_generics = []
 
 [package.metadata.docs.rs]
 all-features = true
+
+[dependencies]
+generic-array = "0.14"

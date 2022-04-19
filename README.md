@@ -19,7 +19,7 @@ takes ownership of `value`, and is then returned using a `Value`
 use stack_dst::ValueA;
 
 // The closure is stored in two 64-bit integers (one for the vtable, the other for the value)
-fn make_closure(value: u64) -> ValueA<dyn Fn()->String, [u64; 2]> {
+fn make_closure(value: u64) -> ValueA<dyn Fn()->String, ::stack_dst::buffers::Ptr2> {
     if value < 0x10000 {
         ValueA::new_stable(move || format!("Hello there! value={}", value), |v| v as _).ok().expect("Closure doesn't fit")
     }

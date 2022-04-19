@@ -1,6 +1,7 @@
 //
 // Implementation of the `DataBuf` trait
 //
+use ::core::mem::MaybeUninit;
 
 /// Trait used to represent a data buffer, typically you'll passs a `[usize; N]` array.
 ///
@@ -11,7 +12,7 @@
 /// - The pointer returned by `as_mut` must be stable until either a call to `extend` or the
 ///   value is moved (i.e. `let a = foo.as_mut().as_ptr(); let b = foo.as_mut().as_ptr(); assert!(a == b)` always holds.)
 /// - `extend` must not change any contained data (but may extend with unspecified values)
-pub unsafe trait DataBuf: AsMut<[Self::Inner]> + AsRef<[Self::Inner]> {
+pub unsafe trait DataBuf: AsMut<[MaybeUninit<Self::Inner>]> + AsRef<[MaybeUninit<Self::Inner>]> {
     /// Inner type of the buffer
     type Inner: Pod;
 
@@ -25,20 +26,25 @@ pub unsafe trait DataBuf: AsMut<[Self::Inner]> + AsRef<[Self::Inner]> {
 }
 
 /// Trait that indicates that a type is valid for any bit pattern
-pub unsafe trait Pod: Copy + Default {}
+pub unsafe trait Pod: Copy {
+    /// Construct a new instance (sames as `Default::default`)
+    fn default() -> Self;
+}
 macro_rules! impl_pod {
     ( $($t:ty),* ) => {
-        $( unsafe impl Pod for $t {} )*
+        $( unsafe impl Pod for $t { fn default() -> Self { 0 } } )*
     }
 }
 impl_pod! { u8, u16, u32, u64, u128, usize }
+unsafe impl<T> Pod for *const T {
+    fn default() -> Self { ::core::ptr::null() }
+}
 
-//unsafe impl<T: Pod> Pod for ::core::mem::MaybeUninit<T> { }
-
-// DISABLED: This can allow users to read padding bytes, wich is UB.
-// Could be added only if the inner type is `MaybeUninit<T>`, but that doesn't impl `Default`
-#[cfg(false_)]
-unsafe impl<T: DataBuf> DataBuf for &mut T {
+unsafe impl<T, U> DataBuf for &mut T
+where
+    U: Pod,
+    T: DataBuf<Inner=U>,
+{
     type Inner = T::Inner;
     fn extend(&mut self, len: usize) -> Result<(), ()> {
         (**self).extend(len)
@@ -48,9 +54,9 @@ unsafe impl<T: DataBuf> DataBuf for &mut T {
 #[cfg(not(feature = "const_generics"))]
 macro_rules! impl_databuf_array {
     ( $($n:expr),* ) => {
-        $(unsafe impl<T: Pod> DataBuf for [T; $n] {
+        $(unsafe impl<T: Pod> DataBuf for [MaybeUninit<T>; $n] {
             type Inner = T;
-            fn extend(&mut self, _: usize) -> Result<(), ()> {
+            fn extend(&mut self, len: usize) -> Result<(), ()> {
                 if len > $n {
                     Err( () )
                 }
@@ -74,7 +80,7 @@ impl_databuf_array! {
 }
 /// Array-specific impl
 #[cfg(feature = "const_generics")]
-unsafe impl<T: Pod, const N: usize> DataBuf for [T; N] {
+unsafe impl<T: Pod, const N: usize> DataBuf for [MaybeUninit<T>; N] {
     type Inner = T;
     fn extend(&mut self, len: usize) -> Result<(), ()> {
         if len > N {
@@ -89,7 +95,7 @@ unsafe impl<T: Pod, const N: usize> DataBuf for [T; N] {
 /// Vector backed structures, can be used to auto-grow the allocation
 ///
 /// ```
-/// let mut buf = ::stack_dst::FifoA::<str, Vec<u8>>::new();
+/// let mut buf = ::stack_dst::FifoA::<str, Vec<::std::mem::MaybeUninit<u8>>>::new();
 /// buf.push_back_str("Hello world!");
 /// buf.push_back_str("This is a very long string");
 /// buf.push_back_str("The buffer should keep growing as it needs to");
@@ -98,13 +104,13 @@ unsafe impl<T: Pod, const N: usize> DataBuf for [T; N] {
 /// }
 /// ```
 #[cfg(all(feature = "alloc"))]
-unsafe impl<T: Pod> crate::DataBuf for ::alloc::vec::Vec<T> {
+unsafe impl<T: Pod> crate::DataBuf for ::alloc::vec::Vec< MaybeUninit<T> > {
     type Inner = T;
     fn extend(&mut self, len: usize) -> Result<(), ()> {
         if len > self.len() {
-            self.resize(len, Default::default());
+            self.resize(len, MaybeUninit::uninit());
             let cap = self.capacity();
-            self.resize(cap, Default::default());
+            self.resize(cap, MaybeUninit::uninit());
         }
         Ok(())
     }

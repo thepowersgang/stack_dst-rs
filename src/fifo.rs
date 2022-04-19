@@ -9,7 +9,7 @@ mod impls;
 /// A First-In-First-Out queue of DSTs
 ///
 /// ```
-/// let mut queue = ::stack_dst::FifoA::<str, [usize; 8]>::new();
+/// let mut queue = ::stack_dst::FifoA::<str, ::stack_dst::buffers::Ptr8>::new();
 /// queue.push_back_str("Hello");
 /// queue.push_back_str("World");
 /// assert_eq!(queue.pop_front().as_deref(), Some("Hello"));
@@ -114,7 +114,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
 
     /// Obtain an immutable iterator (yields references to items, in insertion order)
     /// ```
-    /// let mut list = ::stack_dst::FifoA::<str, [usize; 8]>::new();
+    /// let mut list = ::stack_dst::FifoA::<str, ::stack_dst::buffers::Ptr8>::new();
     /// list.push_back_str("Hello");
     /// list.push_back_str("world");
     /// let mut it = list.iter();
@@ -127,7 +127,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
     }
     /// Obtain a mutable iterator
     /// ```
-    /// let mut list = ::stack_dst::FifoA::<[u8], [usize; 8]>::new();
+    /// let mut list = ::stack_dst::FifoA::<[u8], ::stack_dst::buffers::Ptr8>::new();
     /// list.push_copied(&[1,2,3]);
     /// list.push_copied(&[9]);
     /// for v in list.iter_mut() {
@@ -196,11 +196,11 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
     /// trait DebugAny: 'static + Any + Debug { fn as_any(&self) -> &dyn Any; }
     /// impl<T: Debug + Any + 'static> DebugAny for T { fn as_any(&self) -> &dyn Any { self } }
     /// let mut list = {
-    ///     let mut list: FifoA<dyn DebugAny, [usize; 16]> = FifoA::new();
-    ///     list.push_back(1234);
-    ///     list.push_back(234.5f32);
-    ///     list.push_back(5678);
-    ///     list.push_back(0.5f32);
+    ///     let mut list: FifoA<dyn DebugAny, ::stack_dst::buffers::Ptr8> = FifoA::new();
+    ///     list.push_back_stable(1234, |v| v);
+    ///     list.push_back_stable(234.5f32, |v| v);
+    ///     list.push_back_stable(5678, |v| v);
+    ///     list.push_back_stable(0.5f32, |v| v);
     ///     list
     ///     };
     /// list.retain(|v| (*v).as_any().downcast_ref::<f32>().is_some());
@@ -251,9 +251,9 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
 
 struct PushInnerInfo<'a, DInner> {
     /// Buffer for value data
-    data: &'a mut [DInner],
+    data: &'a mut crate::BufSlice<DInner>,
     /// Buffer for metadata (length/vtable)
-    meta: &'a mut [DInner],
+    meta: &'a mut crate::BufSlice<DInner>,
     /// Memory location for resetting the push
     reset_slot: &'a mut usize,
     reset_value: usize,
@@ -324,7 +324,7 @@ where
     ///
     /// ```
     /// # use ::stack_dst::FifoA;
-    /// let mut queue = FifoA::<[String],[usize; 16]>::new();
+    /// let mut queue = FifoA::<[String], ::stack_dst::buffers::Ptr8>::new();
     /// queue.push_cloned(&["1".to_owned()]);
     /// ```
     pub fn push_cloned(&mut self, v: &[T]) -> Result<(), ()> {
@@ -335,7 +335,7 @@ where
     ///
     /// ```
     /// # use ::stack_dst::FifoA;
-    /// let mut queue = FifoA::<[usize],[usize; 4]>::new();
+    /// let mut queue = FifoA::<[usize], ::stack_dst::buffers::Ptr8>::new();
     /// queue.push_copied(&[1]);
     /// ```
     pub fn push_copied(&mut self, v: &[T]) -> Result<(), ()>
@@ -366,7 +366,7 @@ where
     /// # use stack_dst::FifoA;
     /// # use core::fmt::Display;
     /// 
-    /// let mut stack = FifoA::<[u8], [usize; 8]>::new();
+    /// let mut stack = FifoA::<[u8], ::stack_dst::buffers::Ptr8>::new();
     /// stack.push_from_iter(0..10);
     /// assert_eq!(stack.front().unwrap(), &[0,1,2,3,4,5,6,7,8,9]);
     /// ```

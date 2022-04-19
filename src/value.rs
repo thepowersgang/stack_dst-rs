@@ -11,7 +11,7 @@ use core::{marker, mem, ops, ptr};
 /// # extern crate core;
 /// # use stack_dst::ValueA;
 /// # use core::fmt::Display;
-/// let val = ValueA::<dyn Display, [usize; 2]>::new_stable(123456, |v| v as _).expect("Insufficient size");
+/// let val = ValueA::<dyn Display, ::stack_dst::buffers::Ptr2>::new_stable(123456, |v| v as _).expect("Insufficient size");
 /// assert_eq!( format!("{}", val), "123456" );
 /// ```
 pub struct ValueA<T: ?Sized, D: ::DataBuf> {
@@ -29,7 +29,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     /// # extern crate core;
     /// # use stack_dst::ValueA;
     /// # use core::fmt::Display;
-    /// let val = ValueA::<dyn Display, [usize; 2]>::new(1234).expect("Insufficient size");
+    /// let val = ValueA::<dyn Display, ::stack_dst::buffers::Ptr2>::new(1234).expect("Insufficient size");
     /// assert_eq!( format!("{}", val), "1234" );
     /// ```
     #[cfg(feature = "unsize")]
@@ -69,7 +69,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     /// # extern crate core;
     /// # use stack_dst::ValueA;
     /// # use core::fmt::Display;
-    /// let val = ValueA::<dyn Display, [usize; 2]>::new_stable(1234, |v| v as _).expect("Insufficient size");
+    /// let val = ValueA::<dyn Display, ::stack_dst::buffers::Ptr2>::new_stable(1234, |v| v as _).expect("Insufficient size");
     /// assert_eq!( format!("{}", val), "1234" );
     /// ```
     pub fn new_stable<U, F: FnOnce(&U) -> &T>(val: U, get_ref: F) -> Result<ValueA<T, D>, U>
@@ -89,7 +89,8 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     /// # extern crate core;
     /// # use stack_dst::ValueA;
     /// # use core::fmt::Display;
-    /// let val = ValueA::<dyn Display, _>::in_buffer_stable([0u64; 2], 1234, |v| v as _).expect("Insufficient size");
+    /// # use core::mem::MaybeUninit;
+    /// let val = ValueA::<dyn Display, _>::in_buffer_stable([MaybeUninit::new(0u64); 2], 1234, |v| v as _).expect("Insufficient size");
     /// assert_eq!( format!("{}", val), "1234" );
     /// ```
     pub fn in_buffer_stable<U, F: FnOnce(&U) -> &T>(
@@ -131,8 +132,8 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     /// # use stack_dst::ValueA;
     /// # use core::fmt::Debug;
     /// let val = [1usize, 2, 3, 4];
-    /// assert!( ValueA::<dyn Debug, [usize; 2]>::new(val).is_err() );
-    /// let v = ValueA::<dyn Debug, [usize; 2]>::new_or_boxed(val);
+    /// assert!( ValueA::<dyn Debug, ::stack_dst::buffers::Ptr2>::new(val).is_err() );
+    /// let v = ValueA::<dyn Debug, ::stack_dst::buffers::Ptr2>::new_or_boxed(val);
     /// println!("v = {:?}", v);
     /// ```
     pub fn new_or_boxed<U>(val: U) -> ValueA<T, D>
@@ -194,7 +195,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     /// # extern crate core;
     /// # use stack_dst::ValueA;
     /// # use core::fmt::Display;
-    /// let mut value = ValueA::<dyn Display, [usize; 3]>::new_stable(1234, |v| v).unwrap();
+    /// let mut value = ValueA::<dyn Display, ::stack_dst::buffers::Ptr2>::new_stable(1234, |v| v).unwrap();
     /// assert_eq!(format!("{}", value), "1234");
     /// value.replace_stable(1.234, |v| v).unwrap();
     /// assert_eq!(format!("{}", value), "1.234");
@@ -228,7 +229,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     /// # extern crate core;
     /// # use stack_dst::ValueA;
     /// # use core::fmt::Display;
-    /// let mut value = ValueA::<dyn Display, [usize; 3]>::new(1234).unwrap();
+    /// let mut value = ValueA::<dyn Display, ::stack_dst::buffers::Ptr2>::new(1234).unwrap();
     /// assert_eq!(format!("{}", value), "1234");
     /// value.replace(1.234).unwrap();
     /// assert_eq!(format!("{}", value), "1.234");
@@ -291,7 +292,7 @@ impl<D: ::DataBuf> ValueA<str, D> {
     /// # extern crate core;
     /// # use stack_dst::ValueA;
     /// # use core::fmt::Display;
-    /// let val = ValueA::<str, [u8; 32]>::new_str("Hello, World").expect("Insufficient size");
+    /// let val = ValueA::<str, stack_dst::buffers::U8_32>::new_str("Hello, World").expect("Insufficient size");
     /// assert_eq!( &val[..], "Hello, World" );
     /// ```
     pub fn new_str(v: &str) -> Result<Self,&str>
@@ -306,7 +307,8 @@ impl<D: ::DataBuf> ValueA<str, D> {
     /// # extern crate core;
     /// # use stack_dst::ValueA;
     /// # use core::fmt::Display;
-    /// let val = ValueA::new_str_in_buffer([0u8; 32], "Hello, World").expect("Insufficient size");
+    /// # use core::mem::MaybeUninit;
+    /// let val = ValueA::new_str_in_buffer([MaybeUninit::new(0u8); 32], "Hello, World").expect("Insufficient size");
     /// assert_eq!( &val[..], "Hello, World" );
     /// ```
     pub fn new_str_in_buffer(buffer: D, val: &str) -> Result<Self,&str>
@@ -331,7 +333,7 @@ impl<D: ::DataBuf> ValueA<str, D> {
     /// 
     /// ```
     /// # use stack_dst::ValueA;
-    /// let mut s = ValueA::<str, [usize; 8]>::new_str("Foo").unwrap();
+    /// let mut s = ValueA::<str, stack_dst::buffers::Ptr8>::new_str("Foo").unwrap();
     /// s.append_str("Bar").unwrap();
     /// assert_eq!(&s[..], "FooBar");
     /// ```
@@ -362,7 +364,7 @@ impl<D: ::DataBuf> ValueA<str, D> {
     /// 
     /// ```
     /// # use stack_dst::ValueA;
-    /// let mut s = ValueA::<str, [usize; 8]>::new_str("FooBar").unwrap();
+    /// let mut s = ValueA::<str, stack_dst::buffers::Ptr8>::new_str("FooBar").unwrap();
     /// s.truncate(3);
     /// assert_eq!(&s[..], "Foo");
     /// ```

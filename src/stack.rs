@@ -66,8 +66,8 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     ///
     /// ```
     /// # use stack_dst::StackA;
-    /// let mut stack = StackA::<[u8], [u64; 8]>::new();
-    /// stack.push([1, 2,3]);
+    /// let mut stack = StackA::<[u8], ::stack_dst::buffers::U64_8>::new();
+    /// stack.push([1, 2, 3]);
     /// ```
     #[cfg(feature = "unsize")]
     pub fn push<U: marker::Unsize<T>>(&mut self, v: U) -> Result<(), U>
@@ -81,7 +81,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     ///
     /// ```
     /// # use stack_dst::StackA;
-    /// let mut stack = StackA::<[u8], [u64; 8]>::new();
+    /// let mut stack = StackA::<[u8], ::stack_dst::buffers::U64_8>::new();
     /// stack.push_stable([1, 2,3], |v| v);
     /// ```
     pub fn push_stable<U, F: FnOnce(&U) -> &T>(&mut self, v: U, f: F) -> Result<(), U>
@@ -159,7 +159,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
 
     /// Obtain an immutable iterator (yields references to items, in the order they would be popped)
     /// ```
-    /// let mut list = ::stack_dst::StackA::<str, [usize; 8]>::new();
+    /// let mut list = ::stack_dst::StackA::<str, ::stack_dst::buffers::Ptr8>::new();
     /// list.push_str("Hello");
     /// list.push_str("world");
     /// let mut it = list.iter();
@@ -172,7 +172,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     }
     /// Obtain unique/mutable iterator
     /// ```
-    /// let mut list = ::stack_dst::StackA::<[u8], [usize; 8]>::new();
+    /// let mut list = ::stack_dst::StackA::<[u8], ::stack_dst::buffers::Ptr8>::new();
     /// list.push_copied(&[1,2,3]);
     /// list.push_copied(&[9]);
     /// for v in list.iter_mut() {
@@ -190,9 +190,9 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
 
 struct PushInnerInfo<'a, DInner> {
     /// Buffer for value data
-    data: &'a mut [DInner],
+    data: &'a mut crate::BufSlice<DInner>,
     /// Buffer for metadata (length/vtable)
-    meta: &'a mut [DInner],
+    meta: &'a mut crate::BufSlice<DInner>,
     /// Memory location for resetting the push
     reset_slot: &'a mut usize,
     reset_value: usize,
@@ -254,7 +254,7 @@ impl<D: ::DataBuf> StackA<str, D> {
     ///
     /// ```
     /// # use stack_dst::StackA;
-    /// let mut stack = StackA::<str, [u64; 8]>::new();
+    /// let mut stack = StackA::<str, ::stack_dst::buffers::U8_32>::new();
     /// stack.push_str("Hello!");
     /// ```
     pub fn push_str(&mut self, v: &str) -> Result<(), ()> {
@@ -272,8 +272,8 @@ where
     ///
     /// ```
     /// # use stack_dst::StackA;
-    /// let mut stack = StackA::<[u8], [u64; 8]>::new();
-    /// stack.push_cloned(&[1,2,3]);
+    /// let mut stack = StackA::<[u8], ::stack_dst::buffers::U64_8>::new();
+    /// stack.push_cloned(&[1, 2, 3]);
     /// ```
     pub fn push_cloned(&mut self, v: &[T]) -> Result<(), ()> {
         <(T, D::Inner) as crate::AlignmentValid>::check();
@@ -283,8 +283,8 @@ where
     ///
     /// ```
     /// # use stack_dst::StackA;
-    /// let mut stack = StackA::<[u8], [u64; 8]>::new();
-    /// stack.push_copied(&[1, 2,3]);
+    /// let mut stack = StackA::<[u8], ::stack_dst::buffers::U64_8>::new();
+    /// stack.push_copied(&[1, 2, 3]);
     /// ```
     pub fn push_copied(&mut self, v: &[T]) -> Result<(), ()>
     where
@@ -313,8 +313,7 @@ where
     /// # extern crate core;
     /// # use stack_dst::StackA;
     /// # use core::fmt::Display;
-    /// 
-    /// let mut stack = StackA::<[u8], [usize; 8]>::new();
+    /// let mut stack = StackA::<[u8], stack_dst::buffers::Ptr8>::new();
     /// stack.push_from_iter(0..10);
     /// assert_eq!(stack.top().unwrap(), &[0,1,2,3,4,5,6,7,8,9]);
     /// ```

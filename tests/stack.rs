@@ -2,7 +2,7 @@ use std::any::Any;
 
 extern crate stack_dst;
 
-type DstStack<T> = stack_dst::StackA<T, [usize; 8]>;
+type DstStack<T> = stack_dst::StackA<T, ::stack_dst::buffers::Ptr8>;
 
 #[test]
 // A trivial check that ensures that methods are correctly called
@@ -60,7 +60,7 @@ fn slices() {
 
 #[test]
 fn limits() {
-    let mut val = stack_dst::StackA::<dyn Any, [usize; 2]>::new();
+    let mut val = stack_dst::StackA::<dyn Any, ::stack_dst::buffers::Ptr2>::new();
     // Pushing when full
     val.push_stable(1usize, |p| p).unwrap();
     assert!(val.push_stable(2usize, |p| p).is_err());
@@ -93,7 +93,7 @@ fn destructors() {
 
     let v: ::std::rc::Rc<::std::cell::Cell<_>> = Default::default();
 
-    let mut stack = ::stack_dst::StackA::<dyn Any, [usize; 8]>::new();
+    let mut stack = ::stack_dst::StackA::<dyn Any, ::stack_dst::buffers::Ptr8>::new();
     // Successful pushes shouldn't call destructors
     stack.push_stable(DropWatch(v.clone()), |p| p).ok().unwrap();
     assert_eq!(v.get(), 0);
@@ -137,7 +137,7 @@ fn slice_push_panic_safety() {
     let input = [Sentinel(false), Sentinel(true)];
 
     let _ = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
-        let mut stack = ::stack_dst::StackA::<[Sentinel], [usize; 8]>::new();
+        let mut stack = ::stack_dst::StackA::<[Sentinel], ::stack_dst::buffers::Ptr8>::new();
         let _ = stack.push_cloned(&input);
     }));
     assert_eq!(COUNT.load(Ordering::SeqCst), 1);
@@ -169,7 +169,7 @@ fn slice_push_panic_safety_unaligned() {
         ];
 
     let _ = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
-        let mut stack = ::stack_dst::StackA::<[Sentinel], _>::with_buffer([0xFFu8; 32]);
+        let mut stack = ::stack_dst::StackA::<[Sentinel], _>::with_buffer([::std::mem::MaybeUninit::new(0xFFu8); 32]);
         let _ = stack.push_cloned(&input);
     }));
     assert_eq!(COUNT.load(Ordering::SeqCst), 1);
@@ -179,30 +179,31 @@ fn slice_push_panic_safety_unaligned() {
 mod unaligned {
     use std::any::Any;
     use stack_dst::StackA;
+    type Buf8_16 = ::stack_dst::buffers::ArrayBuf<u8, ::stack_dst::buffers::n::U16>;
     #[test] #[should_panic]
     fn push_stable() {
-        let mut stack = StackA::<dyn Any, [u8; 16]>::new();
+        let mut stack = StackA::<dyn Any, Buf8_16>::new();
         let _ = stack.push_stable(123u32, |v| v as _);
     }
     #[test] #[should_panic]
     #[cfg(feature = "unsize")]
     fn push() {
-        let mut stack = StackA::<dyn Any, [u8; 16]>::new();
+        let mut stack = StackA::<dyn Any, Buf8_16>::new();
         let _ = stack.push(123u32);
     }
     #[test] #[should_panic]
     fn push_cloned() {
-        let mut stack = StackA::<[u32], [u8; 16]>::new();
+        let mut stack = StackA::<[u32], Buf8_16>::new();
         let _ = stack.push_cloned(&[123u32]);
     }
     #[test] #[should_panic]
     fn push_copied() {
-        let mut stack = StackA::<[u32], [u8; 16]>::new();
+        let mut stack = StackA::<[u32], Buf8_16>::new();
         let _ = stack.push_copied(&[123u32]);
     }
     #[test] #[should_panic]
     fn push_from_iter() {
-        let mut stack = StackA::<[u32], [u8; 16]>::new();
+        let mut stack = StackA::<[u32], Buf8_16>::new();
         let _ = stack.push_from_iter(0..1);
     }
 }
