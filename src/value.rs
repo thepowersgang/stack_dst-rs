@@ -49,7 +49,8 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     /// # extern crate core;
     /// # use stack_dst::ValueA;
     /// # use core::fmt::Display;
-    /// let val = ValueA::<dyn Display, _>::in_buffer([0u64; 2], 1234).expect("Insufficient size");
+    /// # use core::mem::MaybeUninit;
+    /// let val = ValueA::<dyn Display, _>::in_buffer([MaybeUninit::new(0u64); 2], 1234).expect("Insufficient size");
     /// assert_eq!( format!("{}", val), "1234" );
     /// ```
     #[cfg(feature = "unsize")]
