@@ -16,10 +16,10 @@ This crate covers two primary usecases
 One of the most obvious uses is to allow returning capturing closures without having to box them. In the example below, the closure
 takes ownership of `value`, and is then returned using a `Value`
 ```rust
-use stack_dst::ValueA;
+use stack_dst::Value;
 
 // The closure is stored in two 64-bit integers (one for the vtable, the other for the value)
-fn make_closure(value: u64) -> ValueA<dyn Fn()->String, ::stack_dst::buffers::Ptr2> {
+fn make_closure(value: u64) -> Value<dyn Fn()->String, ::stack_dst::buffers::U64_2> {
     if value < 0x10000 {
         ValueA::new_stable(move || format!("Hello there! value={}", value), |v| v as _).ok().expect("Closure doesn't fit")
     }

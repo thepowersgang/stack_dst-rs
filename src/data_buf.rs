@@ -8,13 +8,18 @@ use ::core::mem::MaybeUninit;
 /// Can also provide a `Vec<T>` (if the `alloc` feature is enabled) which will grow as-needed
 ///
 /// UNSAFE: Used by the internal unsafe code, must confor to the following rules
-/// - The `AsRef`/`AsMut` impls must return pointers to the same data
+/// - The `as_ref`/`as_mut` methods must return pointers to the same data
 /// - The pointer returned by `as_mut` must be stable until either a call to `extend` or the
 ///   value is moved (i.e. `let a = foo.as_mut().as_ptr(); let b = foo.as_mut().as_ptr(); assert!(a == b)` always holds.)
 /// - `extend` must not change any contained data (but may extend with unspecified values)
-pub unsafe trait DataBuf: AsMut<[MaybeUninit<Self::Inner>]> + AsRef<[MaybeUninit<Self::Inner>]> {
+pub unsafe trait DataBuf {
     /// Inner type of the buffer
     type Inner: Pod;
+
+    /// Get the buffer slice as an immutable borrow
+    fn as_ref(&self) -> &[MaybeUninit<Self::Inner>];
+    /// Get the buffer slice as a mutable borrow
+    fn as_mut(&mut self) -> &mut [MaybeUninit<Self::Inner>];
 
     /// Extend the buffer (fallible)
     fn extend(&mut self, len: usize) -> Result<(), ()>;
@@ -46,6 +51,12 @@ where
     T: DataBuf<Inner=U>,
 {
     type Inner = T::Inner;
+    fn as_ref(&self) -> &[MaybeUninit<Self::Inner>] {
+        (**self).as_ref()
+    }
+    fn as_mut(&mut self) -> &mut [MaybeUninit<Self::Inner>] {
+        (**self).as_mut()
+    }
     fn extend(&mut self, len: usize) -> Result<(), ()> {
         (**self).extend(len)
     }
@@ -56,6 +67,12 @@ macro_rules! impl_databuf_array {
     ( $($n:expr),* ) => {
         $(unsafe impl<T: Pod> DataBuf for [MaybeUninit<T>; $n] {
             type Inner = T;
+            fn as_ref(&self) -> &[MaybeUninit<Self::Inner>] {
+                self
+            }
+            fn as_mut(&mut self) -> &mut [MaybeUninit<Self::Inner>] {
+                self
+            }
             fn extend(&mut self, len: usize) -> Result<(), ()> {
                 if len > $n {
                     Err( () )
@@ -82,6 +99,12 @@ impl_databuf_array! {
 #[cfg(feature = "const_generics")]
 unsafe impl<T: Pod, const N: usize> DataBuf for [MaybeUninit<T>; N] {
     type Inner = T;
+    fn as_ref(&self) -> &[MaybeUninit<Self::Inner>] {
+        self
+    }
+    fn as_mut(&mut self) -> &mut [MaybeUninit<Self::Inner>] {
+        self
+    }
     fn extend(&mut self, len: usize) -> Result<(), ()> {
         if len > N {
             Err(())
@@ -106,6 +129,12 @@ unsafe impl<T: Pod, const N: usize> DataBuf for [MaybeUninit<T>; N] {
 #[cfg(all(feature = "alloc"))]
 unsafe impl<T: Pod> crate::DataBuf for ::alloc::vec::Vec< MaybeUninit<T> > {
     type Inner = T;
+    fn as_ref(&self) -> &[MaybeUninit<Self::Inner>] {
+        self
+    }
+    fn as_mut(&mut self) -> &mut [MaybeUninit<Self::Inner>] {
+        self
+    }
     fn extend(&mut self, len: usize) -> Result<(), ()> {
         if len > self.len() {
             self.resize(len, MaybeUninit::uninit());

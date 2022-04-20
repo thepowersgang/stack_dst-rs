@@ -121,22 +121,6 @@ pub mod buffers {
         {
             inner: ::generic_array::GenericArray<MaybeUninit<T>, N>,
         }
-        impl<T, N> AsRef<crate::BufSlice<T>> for ArrayBuf<T, N>
-        where
-            N: ::generic_array::ArrayLength<MaybeUninit<T>>,
-        {
-            fn as_ref(&self) -> &crate::BufSlice<T> {
-                &self.inner
-            }
-        }
-        impl<T, N> AsMut<crate::BufSlice<T>> for ArrayBuf<T, N>
-        where
-            N: ::generic_array::ArrayLength<MaybeUninit<T>>,
-        {
-            fn as_mut(&mut self) -> &mut crate::BufSlice<T> {
-                &mut self.inner
-            }
-        }
         impl<T, N> ::core::default::Default for ArrayBuf<T, N>
         where
             N: ::generic_array::ArrayLength<MaybeUninit<T>>,
@@ -154,6 +138,12 @@ pub mod buffers {
             N: ::generic_array::ArrayLength<MaybeUninit<T>>,
         {
             type Inner = T;
+            fn as_ref(&self) -> &[MaybeUninit<Self::Inner>] {
+                &self.inner
+            }
+            fn as_mut(&mut self) -> &mut [MaybeUninit<Self::Inner>] {
+                &mut self.inner
+            }
             fn extend(&mut self, len: usize) -> Result<(), ()> {
                 if len > N::USIZE {
                     Err( () )
@@ -172,16 +162,6 @@ pub mod buffers {
         {
             inner: [::core::mem::MaybeUninit<T>; N],
         }
-        impl<T, const N: usize> AsRef<crate::BufSlice<T>> for ArrayBuf<T, N> {
-            fn as_ref(&self) -> &crate::BufSlice<T> {
-                &self.inner
-            }
-        }
-        impl<T, const N: usize> AsMut<crate::BufSlice<T>> for ArrayBuf<T, N> {
-            fn as_mut(&mut self) -> &mut crate::BufSlice<T> {
-                &mut self.inner
-            }
-        }
         impl<T:, const N: usize> ::core::default::Default for ArrayBuf<T, N>
         where
             T: crate::Pod,
@@ -197,6 +177,12 @@ pub mod buffers {
             T: crate::Pod,
         {
             type Inner = T;
+            fn as_ref(&self) -> &[::core::mem::MaybeUninit<Self::Inner>] {
+                &self.inner
+            }
+            fn as_mut(&mut self) -> &mut [::core::mem::MaybeUninit<Self::Inner>] {
+                &mut self.inner
+            }
             fn extend(&mut self, len: usize) -> Result<(), ()> {
                 if len > N {
                     Err( () )

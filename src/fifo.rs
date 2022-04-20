@@ -12,7 +12,7 @@ mod impls;
 /// let mut queue = ::stack_dst::Fifo::<str, ::stack_dst::buffers::Ptr8>::new();
 /// queue.push_back_str("Hello");
 /// queue.push_back_str("World");
-/// assert_eq!(queue.pop_front().as_deref(), Some("Hello"));
+/// assert_eq!(queue.pop_front().as_ref().map(|v| &v[..]), Some("Hello"));
 /// ```
 pub struct Fifo<T: ?Sized, D: ::DataBuf> {
     _pd: marker::PhantomData<*const T>,
@@ -205,8 +205,8 @@ impl<T: ?Sized, D: ::DataBuf> Fifo<T, D> {
     ///     };
     /// list.retain(|v| (*v).as_any().downcast_ref::<f32>().is_some());
     /// let mut it = list.iter().map(|v| format!("{:?}", v));
-    /// assert_eq!(it.next().as_deref(), Some("234.5"));
-    /// assert_eq!(it.next().as_deref(), Some("0.5"));
+    /// assert_eq!(it.next(), Some("234.5".to_owned()));
+    /// assert_eq!(it.next(), Some("0.5".to_owned()));
     /// assert_eq!(it.next(), None);
     /// ```
     pub fn retain<Cb>(&mut self, mut cb: Cb)
