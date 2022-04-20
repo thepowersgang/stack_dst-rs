@@ -9,18 +9,18 @@ mod impls;
 /// A First-In-First-Out queue of DSTs
 ///
 /// ```
-/// let mut queue = ::stack_dst::FifoA::<str, ::stack_dst::buffers::Ptr8>::new();
+/// let mut queue = ::stack_dst::Fifo::<str, ::stack_dst::buffers::Ptr8>::new();
 /// queue.push_back_str("Hello");
 /// queue.push_back_str("World");
 /// assert_eq!(queue.pop_front().as_deref(), Some("Hello"));
 /// ```
-pub struct FifoA<T: ?Sized, D: ::DataBuf> {
+pub struct Fifo<T: ?Sized, D: ::DataBuf> {
     _pd: marker::PhantomData<*const T>,
     read_pos: usize,
     write_pos: usize,
     data: D,
 }
-impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
+impl<T: ?Sized, D: ::DataBuf> Fifo<T, D> {
     /// Construct a new (empty) list
     pub fn new() -> Self
     where
@@ -30,7 +30,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
     }
     /// Construct a new (empty) list using the provided buffer
     pub fn with_buffer(data: D) -> Self {
-        FifoA {
+        Fifo {
             _pd: marker::PhantomData,
             read_pos: 0,
             write_pos: 0,
@@ -114,7 +114,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
 
     /// Obtain an immutable iterator (yields references to items, in insertion order)
     /// ```
-    /// let mut list = ::stack_dst::FifoA::<str, ::stack_dst::buffers::Ptr8>::new();
+    /// let mut list = ::stack_dst::Fifo::<str, ::stack_dst::buffers::Ptr8>::new();
     /// list.push_back_str("Hello");
     /// list.push_back_str("world");
     /// let mut it = list.iter();
@@ -127,7 +127,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
     }
     /// Obtain a mutable iterator
     /// ```
-    /// let mut list = ::stack_dst::FifoA::<[u8], ::stack_dst::buffers::Ptr8>::new();
+    /// let mut list = ::stack_dst::Fifo::<[u8], ::stack_dst::buffers::Ptr8>::new();
     /// list.push_copied(&[1,2,3]);
     /// list.push_copied(&[9]);
     /// for v in list.iter_mut() {
@@ -190,13 +190,13 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D> {
     ///
     /// ```
     /// # extern crate core;
-    /// use stack_dst::FifoA;
+    /// use stack_dst::Fifo;
     /// use core::any::Any;
     /// use core::fmt::Debug;
     /// trait DebugAny: 'static + Any + Debug { fn as_any(&self) -> &dyn Any; }
     /// impl<T: Debug + Any + 'static> DebugAny for T { fn as_any(&self) -> &dyn Any { self } }
     /// let mut list = {
-    ///     let mut list: FifoA<dyn DebugAny, ::stack_dst::buffers::Ptr8> = FifoA::new();
+    ///     let mut list: Fifo<dyn DebugAny, ::stack_dst::buffers::Ptr8> = Fifo::new();
     ///     list.push_back_stable(1234, |v| v);
     ///     list.push_back_stable(234.5f32, |v| v);
     ///     list.push_back_stable(5678, |v| v);
@@ -259,7 +259,7 @@ struct PushInnerInfo<'a, DInner> {
     reset_value: usize,
 }
 
-impl<T: ?Sized, D: ::DataBuf> FifoA<T, D>
+impl<T: ?Sized, D: ::DataBuf> Fifo<T, D>
 {
     /// Push an item to the list (setting metadata based on `fat_ptr`)
     /// UNSAFE: Caller must fill the buffer before any potential panic
@@ -306,7 +306,7 @@ impl<T: ?Sized, D: ::DataBuf> FifoA<T, D>
     }
 }
 
-impl<D: ::DataBuf> FifoA<str, D> {
+impl<D: ::DataBuf> Fifo<str, D> {
     /// Push the contents of a string slice as an item onto the stack
     pub fn push_back_str(&mut self, v: &str) -> Result<(), ()> {
         unsafe {
@@ -316,15 +316,15 @@ impl<D: ::DataBuf> FifoA<str, D> {
     }
 }
 
-impl<D: ::DataBuf, T: Clone> FifoA<[T], D>
+impl<D: ::DataBuf, T: Clone> Fifo<[T], D>
 where
     (T, D::Inner): crate::AlignmentValid,
 {
     /// Pushes a set of items (cloning out of the input slice)
     ///
     /// ```
-    /// # use ::stack_dst::FifoA;
-    /// let mut queue = FifoA::<[String], ::stack_dst::buffers::Ptr8>::new();
+    /// # use ::stack_dst::Fifo;
+    /// let mut queue = Fifo::<[String], ::stack_dst::buffers::Ptr8>::new();
     /// queue.push_cloned(&["1".to_owned()]);
     /// ```
     pub fn push_cloned(&mut self, v: &[T]) -> Result<(), ()> {
@@ -334,8 +334,8 @@ where
     /// Pushes a set of items (copying out of the input slice)
     ///
     /// ```
-    /// # use ::stack_dst::FifoA;
-    /// let mut queue = FifoA::<[usize], ::stack_dst::buffers::Ptr8>::new();
+    /// # use ::stack_dst::Fifo;
+    /// let mut queue = Fifo::<[usize], ::stack_dst::buffers::Ptr8>::new();
     /// queue.push_copied(&[1]);
     /// ```
     pub fn push_copied(&mut self, v: &[T]) -> Result<(), ()>
@@ -355,7 +355,7 @@ where
         }
     }
 }
-impl<D: crate::DataBuf, T> FifoA<[T], D>
+impl<D: crate::DataBuf, T> Fifo<[T], D>
 where
     (T, D::Inner): crate::AlignmentValid,
 {
@@ -363,10 +363,10 @@ where
     /// 
     /// ```
     /// # extern crate core;
-    /// # use stack_dst::FifoA;
+    /// # use stack_dst::Fifo;
     /// # use core::fmt::Display;
     /// 
-    /// let mut stack = FifoA::<[u8], ::stack_dst::buffers::Ptr8>::new();
+    /// let mut stack = Fifo::<[u8], ::stack_dst::buffers::Ptr8>::new();
     /// stack.push_from_iter(0..10);
     /// assert_eq!(stack.front().unwrap(), &[0,1,2,3,4,5,6,7,8,9]);
     /// ```
@@ -381,20 +381,20 @@ where
     }
 }
 
-impl<T: ?Sized, D: crate::DataBuf> ops::Drop for FifoA<T, D> {
+impl<T: ?Sized, D: crate::DataBuf> ops::Drop for Fifo<T, D> {
     fn drop(&mut self) {
         while let Some(_) = self.pop_front() {}
     }
 }
-impl<T: ?Sized, D: ::DataBuf + Default> Default for FifoA<T, D> {
+impl<T: ?Sized, D: ::DataBuf + Default> Default for Fifo<T, D> {
     fn default() -> Self {
-        FifoA::new()
+        Fifo::new()
     }
 }
 
-/// Handle returned by `FifoA::pop` (does the actual pop on drop)
+/// Handle returned by `Fifo::pop` (does the actual pop on drop)
 pub struct PopHandle<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> {
-    parent: &'a mut FifoA<T, D>,
+    parent: &'a mut Fifo<T, D>,
 }
 impl<'a, T: ?Sized, D: crate::DataBuf> ops::Deref for PopHandle<'a, T, D> {
     type Target = T;
@@ -414,7 +414,7 @@ impl<'a, T: ?Sized, D: crate::DataBuf> ops::Drop for PopHandle<'a, T, D> {
 }
 
 /// DST FIFO iterator (immutable)
-pub struct Iter<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>(&'a FifoA<T, D>, usize);
+pub struct Iter<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>(&'a Fifo<T, D>, usize);
 impl<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> iter::Iterator for Iter<'a, T, D> {
     type Item = &'a T;
     fn next(&mut self) -> Option<&'a T> {
@@ -423,13 +423,13 @@ impl<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> iter::Iterator for Iter<'a, T, 
         } else {
             // SAFE: Bounds checked, aliasing enforced by API
             let rv = unsafe { &*self.0.raw_at(self.1) };
-            self.1 += FifoA::<T, D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
+            self.1 += Fifo::<T, D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
             Some(rv)
         }
     }
 }
 /// DST FIFO iterator (mutable)
-pub struct IterMut<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>(&'a mut FifoA<T, D>, usize);
+pub struct IterMut<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>(&'a mut Fifo<T, D>, usize);
 impl<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> iter::Iterator for IterMut<'a, T, D> {
     type Item = &'a mut T;
     fn next(&mut self) -> Option<&'a mut T> {
@@ -438,7 +438,7 @@ impl<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> iter::Iterator for IterMut<'a, 
         } else {
             // SAFE: Bounds checked, aliasing enforced by API
             let rv = unsafe { &mut *self.0.raw_at_mut(self.1) };
-            self.1 += FifoA::<T, D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
+            self.1 += Fifo::<T, D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
             Some(rv)
         }
     }

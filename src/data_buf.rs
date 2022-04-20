@@ -95,7 +95,7 @@ unsafe impl<T: Pod, const N: usize> DataBuf for [MaybeUninit<T>; N] {
 /// Vector backed structures, can be used to auto-grow the allocation
 ///
 /// ```
-/// let mut buf = ::stack_dst::FifoA::<str, Vec<::std::mem::MaybeUninit<u8>>>::new();
+/// let mut buf = ::stack_dst::Fifo::<str, Vec<::std::mem::MaybeUninit<u8>>>::new();
 /// buf.push_back_str("Hello world!");
 /// buf.push_back_str("This is a very long string");
 /// buf.push_back_str("The buffer should keep growing as it needs to");

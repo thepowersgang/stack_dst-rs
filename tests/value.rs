@@ -1,7 +1,7 @@
 extern crate stack_dst;
 
-type Value2w<T/*: ?Sized*/> = stack_dst::ValueA<T, ::stack_dst::buffers::Ptr2>;
-type Value8w<T/*: ?Sized*/> = stack_dst::ValueA<T, ::stack_dst::buffers::Ptr8>;
+type Value2w<T/*: ?Sized*/> = stack_dst::Value<T, ::stack_dst::buffers::Ptr2>;
+type Value8w<T/*: ?Sized*/> = stack_dst::Value<T, ::stack_dst::buffers::Ptr8>;
 
 #[test]
 // A trivial check that ensures that methods are correctly called
@@ -109,40 +109,40 @@ fn stable_closure_subset() {
 // - In the future, these would compile-error (using const-generics)
 #[cfg(not(feature="full_const_generics"))]
 mod unaligned {
-    use ::stack_dst::ValueA;
+    use ::stack_dst::Value;
     use ::std::any::Any;
 
     type BufU8_16 = ::stack_dst::buffers::ArrayBuf<u8, ::stack_dst::buffers::n::U16>;
 
     #[test] #[should_panic]
     fn new_stable() {
-        let _ = ValueA::<dyn Any, BufU8_16>::new_stable(1234u32, |v| v);
+        let _ = Value::<dyn Any, BufU8_16>::new_stable(1234u32, |v| v);
     }
     #[test] #[should_panic]
     fn in_buffer_stable() {
-        let _ = ValueA::<dyn Any, _>::in_buffer_stable([::std::mem::MaybeUninit::new(0u8); 16], 1234u32, |v| v);
+        let _ = Value::<dyn Any, _>::in_buffer_stable([::std::mem::MaybeUninit::new(0u8); 16], 1234u32, |v| v);
     }
     #[test] #[should_panic]
     #[cfg(feature="unsize")]
     fn new() {
-        let _ = ValueA::<dyn Any, BufU8_16>::new(1234u32);
+        let _ = Value::<dyn Any, BufU8_16>::new(1234u32);
     }
     #[test] #[should_panic]
     #[cfg(feature="unsize")]
     fn in_buffer() {
-        let _ = ValueA::<dyn Any, _>::in_buffer([::std::mem::MaybeUninit::new(0u8); 16], 1234u32);
+        let _ = Value::<dyn Any, _>::in_buffer([::std::mem::MaybeUninit::new(0u8); 16], 1234u32);
     }
     #[test] #[should_panic]
-    #[cfg(feature="unsize")]
+    #[cfg(all(feature="unsize",feature="alloc"))]
     fn new_or_boxed() {
-        let _ = ValueA::<dyn Any, BufU8_16>::new_or_boxed(1234u32);
+        let _ = Value::<dyn Any, BufU8_16>::new_or_boxed(1234u32);
     }
     #[test] #[should_panic]
     fn empty_slice() {
-        let _ = ValueA::<[u32], BufU8_16>::empty_slice();
+        let _ = Value::<[u32], BufU8_16>::empty_slice();
     }
     #[test] #[should_panic]
     fn empty_slice_with_buffer() {
-        let _ = ValueA::<[u32], _>::empty_slice_with_buffer([::std::mem::MaybeUninit::new(0u8); 16]);
+        let _ = Value::<[u32], _>::empty_slice_with_buffer([::std::mem::MaybeUninit::new(0u8); 16]);
     }
 }

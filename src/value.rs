@@ -9,31 +9,31 @@ use core::{marker, mem, ops, ptr};
 ///
 /// ```
 /// # extern crate core;
-/// # use stack_dst::ValueA;
+/// # use stack_dst::Value;
 /// # use core::fmt::Display;
-/// let val = ValueA::<dyn Display, ::stack_dst::buffers::Ptr2>::new_stable(123456, |v| v as _).expect("Insufficient size");
+/// let val = Value::<dyn Display, ::stack_dst::buffers::Ptr2>::new_stable(123456, |v| v as _).expect("Insufficient size");
 /// assert_eq!( format!("{}", val), "123456" );
 /// ```
-pub struct ValueA<T: ?Sized, D: ::DataBuf> {
+pub struct Value<T: ?Sized, D: ::DataBuf> {
     _pd: marker::PhantomData<T>,
     // Data contains the object data first, then padding, then the pointer information
     data: D,
 }
 
-impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
+impl<T: ?Sized, D: ::DataBuf> Value<T, D> {
     /// Construct a stack-based DST
     ///
     /// Returns Ok(dst) if the allocation was successful, or Err(val) if it failed
     ///
     /// ```
     /// # extern crate core;
-    /// # use stack_dst::ValueA;
+    /// # use stack_dst::Value;
     /// # use core::fmt::Display;
-    /// let val = ValueA::<dyn Display, ::stack_dst::buffers::Ptr2>::new(1234).expect("Insufficient size");
+    /// let val = Value::<dyn Display, ::stack_dst::buffers::Ptr2>::new(1234).expect("Insufficient size");
     /// assert_eq!( format!("{}", val), "1234" );
     /// ```
     #[cfg(feature = "unsize")]
-    pub fn new<U: marker::Unsize<T>>(val: U) -> Result<ValueA<T, D>, U>
+    pub fn new<U: marker::Unsize<T>>(val: U) -> Result<Value<T, D>, U>
     where
         (U, D::Inner): crate::AlignmentValid,
         D: Default,
@@ -47,14 +47,14 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     ///
     /// ```
     /// # extern crate core;
-    /// # use stack_dst::ValueA;
+    /// # use stack_dst::Value;
     /// # use core::fmt::Display;
     /// # use core::mem::MaybeUninit;
-    /// let val = ValueA::<dyn Display, _>::in_buffer([MaybeUninit::new(0u64); 2], 1234).expect("Insufficient size");
+    /// let val = Value::<dyn Display, _>::in_buffer([MaybeUninit::new(0u64); 2], 1234).expect("Insufficient size");
     /// assert_eq!( format!("{}", val), "1234" );
     /// ```
     #[cfg(feature = "unsize")]
-    pub fn in_buffer<U: marker::Unsize<T>>(buffer: D, val: U) -> Result<ValueA<T, D>, U>
+    pub fn in_buffer<U: marker::Unsize<T>>(buffer: D, val: U) -> Result<Value<T, D>, U>
     where
         (U, D::Inner): crate::AlignmentValid,
     {
@@ -68,12 +68,12 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     ///
     /// ```
     /// # extern crate core;
-    /// # use stack_dst::ValueA;
+    /// # use stack_dst::Value;
     /// # use core::fmt::Display;
-    /// let val = ValueA::<dyn Display, ::stack_dst::buffers::Ptr2>::new_stable(1234, |v| v as _).expect("Insufficient size");
+    /// let val = Value::<dyn Display, ::stack_dst::buffers::Ptr2>::new_stable(1234, |v| v as _).expect("Insufficient size");
     /// assert_eq!( format!("{}", val), "1234" );
     /// ```
-    pub fn new_stable<U, F: FnOnce(&U) -> &T>(val: U, get_ref: F) -> Result<ValueA<T, D>, U>
+    pub fn new_stable<U, F: FnOnce(&U) -> &T>(val: U, get_ref: F) -> Result<Value<T, D>, U>
     where
         (U, D::Inner): crate::AlignmentValid,
         D: Default,
@@ -88,17 +88,17 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     ///
     /// ```
     /// # extern crate core;
-    /// # use stack_dst::ValueA;
+    /// # use stack_dst::Value;
     /// # use core::fmt::Display;
     /// # use core::mem::MaybeUninit;
-    /// let val = ValueA::<dyn Display, _>::in_buffer_stable([MaybeUninit::new(0u64); 2], 1234, |v| v as _).expect("Insufficient size");
+    /// let val = Value::<dyn Display, _>::in_buffer_stable([MaybeUninit::new(0u64); 2], 1234, |v| v as _).expect("Insufficient size");
     /// assert_eq!( format!("{}", val), "1234" );
     /// ```
     pub fn in_buffer_stable<U, F: FnOnce(&U) -> &T>(
         buffer: D,
         val: U,
         get_ref: F,
-    ) -> Result<ValueA<T, D>, U>
+    ) -> Result<Value<T, D>, U>
     where
         (U, D::Inner): crate::AlignmentValid,
     {
@@ -108,7 +108,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
             let ptr: *const _ = crate::check_fat_pointer(&val, get_ref);
             let (raw_ptr, meta_len, meta) = super::decompose_pointer(ptr);
 
-            ValueA::new_raw(
+            Value::new_raw(
                 &meta[..meta_len],
                 raw_ptr as *mut _,
                 mem::size_of::<U>(),
@@ -130,14 +130,14 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     ///
     /// ```
     /// # extern crate core;
-    /// # use stack_dst::ValueA;
+    /// # use stack_dst::Value;
     /// # use core::fmt::Debug;
     /// let val = [1usize, 2, 3, 4];
-    /// assert!( ValueA::<dyn Debug, ::stack_dst::buffers::Ptr2>::new(val).is_err() );
-    /// let v = ValueA::<dyn Debug, ::stack_dst::buffers::Ptr2>::new_or_boxed(val);
+    /// assert!( Value::<dyn Debug, ::stack_dst::buffers::Ptr2>::new(val).is_err() );
+    /// let v = Value::<dyn Debug, ::stack_dst::buffers::Ptr2>::new_or_boxed(val);
     /// println!("v = {:?}", v);
     /// ```
-    pub fn new_or_boxed<U>(val: U) -> ValueA<T, D>
+    pub fn new_or_boxed<U>(val: U) -> Value<T, D>
     where
         (U, D::Inner): crate::AlignmentValid,
         U: marker::Unsize<T>,
@@ -157,14 +157,14 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
         data: *mut (),
         size: usize,
         mut buffer: D,
-        ) -> Option<ValueA<T, D>>
+        ) -> Option<Value<T, D>>
     {
         let req_words = D::round_to_words(mem::size_of_val(info)) + D::round_to_words(size);
         if let Err(_) = buffer.extend( req_words ) {
             return None;
         }
 
-        let mut rv = mem::ManuallyDrop::new(ValueA::<T,D> {
+        let mut rv = mem::ManuallyDrop::new(Value::<T,D> {
             _pd: marker::PhantomData,
             data: buffer,
         });
@@ -194,9 +194,9 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     /// 
     /// ```
     /// # extern crate core;
-    /// # use stack_dst::ValueA;
+    /// # use stack_dst::Value;
     /// # use core::fmt::Display;
-    /// let mut value = ValueA::<dyn Display, ::stack_dst::buffers::Ptr2>::new_stable(1234, |v| v).unwrap();
+    /// let mut value = Value::<dyn Display, ::stack_dst::buffers::Ptr2>::new_stable(1234, |v| v).unwrap();
     /// assert_eq!(format!("{}", value), "1234");
     /// value.replace_stable(1.234, |v| v).unwrap();
     /// assert_eq!(format!("{}", value), "1.234");
@@ -228,9 +228,9 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     /// 
     /// ```
     /// # extern crate core;
-    /// # use stack_dst::ValueA;
+    /// # use stack_dst::Value;
     /// # use core::fmt::Display;
-    /// let mut value = ValueA::<dyn Display, ::stack_dst::buffers::Ptr2>::new(1234).unwrap();
+    /// let mut value = Value::<dyn Display, ::stack_dst::buffers::Ptr2>::new(1234).unwrap();
     /// assert_eq!(format!("{}", value), "1234");
     /// value.replace(1.234).unwrap();
     /// assert_eq!(format!("{}", value), "1.234");
@@ -262,7 +262,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
     }
 }
 /// Specialisations for `str` (allowing storage of strings with single-byte alignment)
-impl<D: ::DataBuf> ValueA<str, D> {
+impl<D: ::DataBuf> Value<str, D> {
     /// Create a new empty string with a default buffer
     pub fn empty_str() -> Result<Self,()>
     where
@@ -276,7 +276,7 @@ impl<D: ::DataBuf> ValueA<str, D> {
         let rv = unsafe {
             let (raw_ptr, meta_len, meta) = super::decompose_pointer("");
 
-            ValueA::new_raw(
+            Value::new_raw(
                 &meta[..meta_len],
                 raw_ptr as *mut (),
                 0,
@@ -291,9 +291,9 @@ impl<D: ::DataBuf> ValueA<str, D> {
     /// Construct from a `str` using a default-constructed buffer
     /// ```
     /// # extern crate core;
-    /// # use stack_dst::ValueA;
+    /// # use stack_dst::Value;
     /// # use core::fmt::Display;
-    /// let val = ValueA::<str, stack_dst::buffers::U8_32>::new_str("Hello, World").expect("Insufficient size");
+    /// let val = Value::<str, stack_dst::buffers::U8_32>::new_str("Hello, World").expect("Insufficient size");
     /// assert_eq!( &val[..], "Hello, World" );
     /// ```
     pub fn new_str(v: &str) -> Result<Self,&str>
@@ -306,10 +306,10 @@ impl<D: ::DataBuf> ValueA<str, D> {
     ///
     /// ```
     /// # extern crate core;
-    /// # use stack_dst::ValueA;
+    /// # use stack_dst::Value;
     /// # use core::fmt::Display;
     /// # use core::mem::MaybeUninit;
-    /// let val = ValueA::new_str_in_buffer([MaybeUninit::new(0u8); 32], "Hello, World").expect("Insufficient size");
+    /// let val = Value::new_str_in_buffer([MaybeUninit::new(0u8); 32], "Hello, World").expect("Insufficient size");
     /// assert_eq!( &val[..], "Hello, World" );
     /// ```
     pub fn new_str_in_buffer(buffer: D, val: &str) -> Result<Self,&str>
@@ -317,7 +317,7 @@ impl<D: ::DataBuf> ValueA<str, D> {
         let rv = unsafe {
             let (raw_ptr, meta_len, meta) = super::decompose_pointer(val);
 
-            ValueA::new_raw(
+            Value::new_raw(
                 &meta[..meta_len],
                 raw_ptr as *mut (),
                 mem::size_of_val(val),
@@ -333,8 +333,8 @@ impl<D: ::DataBuf> ValueA<str, D> {
     /// Add a string to the end of a string
     /// 
     /// ```
-    /// # use stack_dst::ValueA;
-    /// let mut s = ValueA::<str, stack_dst::buffers::Ptr8>::new_str("Foo").unwrap();
+    /// # use stack_dst::Value;
+    /// let mut s = Value::<str, stack_dst::buffers::Ptr8>::new_str("Foo").unwrap();
     /// s.append_str("Bar").unwrap();
     /// assert_eq!(&s[..], "FooBar");
     /// ```
@@ -364,8 +364,8 @@ impl<D: ::DataBuf> ValueA<str, D> {
     /// Resize the string (discarding trailing data)
     /// 
     /// ```
-    /// # use stack_dst::ValueA;
-    /// let mut s = ValueA::<str, stack_dst::buffers::Ptr8>::new_str("FooBar").unwrap();
+    /// # use stack_dst::Value;
+    /// let mut s = Value::<str, stack_dst::buffers::Ptr8>::new_str("FooBar").unwrap();
     /// s.truncate(3);
     /// assert_eq!(&s[..], "Foo");
     /// ```
@@ -381,7 +381,7 @@ impl<D: ::DataBuf> ValueA<str, D> {
     }
 }
 /// Specialisation for slices (acting like an `ArrayVec`)
-impl<I, D: ::DataBuf> ValueA<[I], D>
+impl<I, D: ::DataBuf> Value<[I], D>
 where
     (I, D::Inner): crate::AlignmentValid,
 {
@@ -404,7 +404,7 @@ where
         }
         assert!(req_words <= buffer.as_ref().len());
 
-        let mut rv = ValueA {
+        let mut rv = Value {
             _pd: marker::PhantomData,
             data: buffer,
         };
@@ -490,18 +490,18 @@ where
         }
     }
 }
-impl<T: ?Sized, D: ::DataBuf> ops::Deref for ValueA<T, D> {
+impl<T: ?Sized, D: ::DataBuf> ops::Deref for Value<T, D> {
     type Target = T;
     fn deref(&self) -> &T {
         unsafe { &*self.as_ptr() }
     }
 }
-impl<T: ?Sized, D: ::DataBuf> ops::DerefMut for ValueA<T, D> {
+impl<T: ?Sized, D: ::DataBuf> ops::DerefMut for Value<T, D> {
     fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *self.as_ptr_mut() }
     }
 }
-impl<T: ?Sized, D: ::DataBuf> ops::Drop for ValueA<T, D> {
+impl<T: ?Sized, D: ::DataBuf> ops::Drop for Value<T, D> {
     fn drop(&mut self) {
         unsafe { ptr::drop_in_place(&mut **self) }
     }

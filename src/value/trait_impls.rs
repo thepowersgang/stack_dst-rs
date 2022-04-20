@@ -4,7 +4,7 @@ use core::task;
 
 macro_rules! d {
     ( $t:path; $($body:tt)* ) => {
-        impl<D: ::DataBuf, T: ?Sized> $t for super::ValueA<T, D>
+        impl<D: ::DataBuf, T: ?Sized> $t for super::Value<T, D>
         where
             T: $t,
         {

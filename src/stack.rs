@@ -15,7 +15,7 @@ mod impls;
 /// of items that can unsize to `T`.
 ///
 /// Note: Each item in the stack takes at least one slot in the buffer (to store the metadata)
-pub struct StackA<T: ?Sized, D: ::DataBuf> {
+pub struct Stack<T: ?Sized, D: ::DataBuf> {
     _pd: marker::PhantomData<*const T>,
     // Offset from the _back_ of `data` to the next free position.
     // I.e. data[data.len() - cur_ofs] is the first metadata word
@@ -23,20 +23,20 @@ pub struct StackA<T: ?Sized, D: ::DataBuf> {
     data: D,
 }
 
-impl<T: ?Sized, D: ::DataBuf> ops::Drop for StackA<T, D> {
+impl<T: ?Sized, D: ::DataBuf> ops::Drop for Stack<T, D> {
     fn drop(&mut self) {
         while !self.is_empty() {
             self.pop();
         }
     }
 }
-impl<T: ?Sized, D: ::DataBuf + Default> Default for StackA<T, D> {
+impl<T: ?Sized, D: ::DataBuf + Default> Default for Stack<T, D> {
     fn default() -> Self {
-        StackA::new()
+        Stack::new()
     }
 }
 
-impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
+impl<T: ?Sized, D: ::DataBuf> Stack<T, D> {
     /// Construct a new (empty) stack
     pub fn new() -> Self
     where
@@ -46,7 +46,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     }
     /// Construct a new (empty) stack using the provided buffer
     pub fn with_buffer(data: D) -> Self {
-        StackA {
+        Stack {
             _pd: marker::PhantomData,
             next_ofs: 0,
             data,
@@ -65,8 +65,8 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     /// Push a value at the top of the stack
     ///
     /// ```
-    /// # use stack_dst::StackA;
-    /// let mut stack = StackA::<[u8], ::stack_dst::buffers::U64_8>::new();
+    /// # use stack_dst::Stack;
+    /// let mut stack = Stack::<[u8], ::stack_dst::buffers::U64_8>::new();
     /// stack.push([1, 2, 3]);
     /// ```
     #[cfg(feature = "unsize")]
@@ -80,8 +80,8 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     /// Push a value at the top of the stack (without using `Unsize`)
     ///
     /// ```
-    /// # use stack_dst::StackA;
-    /// let mut stack = StackA::<[u8], ::stack_dst::buffers::U64_8>::new();
+    /// # use stack_dst::Stack;
+    /// let mut stack = Stack::<[u8], ::stack_dst::buffers::U64_8>::new();
     /// stack.push_stable([1, 2,3], |v| v);
     /// ```
     pub fn push_stable<U, F: FnOnce(&U) -> &T>(&mut self, v: U, f: F) -> Result<(), U>
@@ -159,7 +159,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
 
     /// Obtain an immutable iterator (yields references to items, in the order they would be popped)
     /// ```
-    /// let mut list = ::stack_dst::StackA::<str, ::stack_dst::buffers::Ptr8>::new();
+    /// let mut list = ::stack_dst::Stack::<str, ::stack_dst::buffers::Ptr8>::new();
     /// list.push_str("Hello");
     /// list.push_str("world");
     /// let mut it = list.iter();
@@ -172,7 +172,7 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     }
     /// Obtain unique/mutable iterator
     /// ```
-    /// let mut list = ::stack_dst::StackA::<[u8], ::stack_dst::buffers::Ptr8>::new();
+    /// let mut list = ::stack_dst::Stack::<[u8], ::stack_dst::buffers::Ptr8>::new();
     /// list.push_copied(&[1,2,3]);
     /// list.push_copied(&[9]);
     /// for v in list.iter_mut() {
@@ -197,7 +197,7 @@ struct PushInnerInfo<'a, DInner> {
     reset_slot: &'a mut usize,
     reset_value: usize,
 }
-impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
+impl<T: ?Sized, D: ::DataBuf> Stack<T, D> {
 
     /// See `push_inner_raw`
     unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<PushInnerInfo<D::Inner>, ()> {
@@ -249,12 +249,12 @@ impl<T: ?Sized, D: ::DataBuf> StackA<T, D> {
     }
 }
 
-impl<D: ::DataBuf> StackA<str, D> {
+impl<D: ::DataBuf> Stack<str, D> {
     /// Push the contents of a string slice as an item onto the stack
     ///
     /// ```
-    /// # use stack_dst::StackA;
-    /// let mut stack = StackA::<str, ::stack_dst::buffers::U8_32>::new();
+    /// # use stack_dst::Stack;
+    /// let mut stack = Stack::<str, ::stack_dst::buffers::U8_32>::new();
     /// stack.push_str("Hello!");
     /// ```
     pub fn push_str(&mut self, v: &str) -> Result<(), ()> {
@@ -264,15 +264,15 @@ impl<D: ::DataBuf> StackA<str, D> {
         }
     }
 }
-impl<D: ::DataBuf, T: Clone> StackA<[T], D>
+impl<D: ::DataBuf, T: Clone> Stack<[T], D>
 where
     (T, D::Inner): crate::AlignmentValid,
 {
     /// Pushes a set of items (cloning out of the input slice)
     ///
     /// ```
-    /// # use stack_dst::StackA;
-    /// let mut stack = StackA::<[u8], ::stack_dst::buffers::U64_8>::new();
+    /// # use stack_dst::Stack;
+    /// let mut stack = Stack::<[u8], ::stack_dst::buffers::U64_8>::new();
     /// stack.push_cloned(&[1, 2, 3]);
     /// ```
     pub fn push_cloned(&mut self, v: &[T]) -> Result<(), ()> {
@@ -282,8 +282,8 @@ where
     /// Pushes a set of items (copying out of the input slice)
     ///
     /// ```
-    /// # use stack_dst::StackA;
-    /// let mut stack = StackA::<[u8], ::stack_dst::buffers::U64_8>::new();
+    /// # use stack_dst::Stack;
+    /// let mut stack = Stack::<[u8], ::stack_dst::buffers::U64_8>::new();
     /// stack.push_copied(&[1, 2, 3]);
     /// ```
     pub fn push_copied(&mut self, v: &[T]) -> Result<(), ()>
@@ -303,7 +303,7 @@ where
         }
     }
 }
-impl<D: crate::DataBuf, T> StackA<[T], D>
+impl<D: crate::DataBuf, T> Stack<[T], D>
 where
     (T, D::Inner): crate::AlignmentValid,
 {
@@ -311,9 +311,9 @@ where
     /// 
     /// ```
     /// # extern crate core;
-    /// # use stack_dst::StackA;
+    /// # use stack_dst::Stack;
     /// # use core::fmt::Display;
-    /// let mut stack = StackA::<[u8], stack_dst::buffers::Ptr8>::new();
+    /// let mut stack = Stack::<[u8], stack_dst::buffers::Ptr8>::new();
     /// stack.push_from_iter(0..10);
     /// assert_eq!(stack.top().unwrap(), &[0,1,2,3,4,5,6,7,8,9]);
     /// ```
@@ -329,7 +329,7 @@ where
 }
 
 /// DST Stack iterator (immutable)
-pub struct Iter<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>(&'a StackA<T, D>, usize);
+pub struct Iter<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>(&'a Stack<T, D>, usize);
 impl<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> iter::Iterator for Iter<'a, T, D> {
     type Item = &'a T;
     fn next(&mut self) -> Option<&'a T> {
@@ -338,14 +338,14 @@ impl<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> iter::Iterator for Iter<'a, T, 
         } else {
             // SAFE: Bounds checked, aliasing enforced by API
             let rv = unsafe { &*self.0.raw_at(self.1) };
-            self.1 -= StackA::<T, D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
+            self.1 -= Stack::<T, D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
             Some(rv)
         }
     }
 }
 
 /// DST Stack iterator (immutable)
-pub struct IterMut<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>(&'a mut StackA<T, D>, usize);
+pub struct IterMut<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf>(&'a mut Stack<T, D>, usize);
 impl<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> iter::Iterator for IterMut<'a, T, D> {
     type Item = &'a mut T;
     fn next(&mut self) -> Option<&'a mut T> {
@@ -354,7 +354,7 @@ impl<'a, T: 'a + ?Sized, D: 'a + crate::DataBuf> iter::Iterator for IterMut<'a, 
         } else {
             // SAFE: Bounds checked, aliasing enforced by API
             let rv = unsafe { &mut *self.0.raw_at_mut(self.1) };
-            self.1 -= StackA::<T, D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
+            self.1 -= Stack::<T, D>::meta_words() + D::round_to_words(mem::size_of_val(rv));
             Some(rv)
         }
     }

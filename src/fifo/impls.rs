@@ -1,6 +1,6 @@
 macro_rules! d {
     ( $t:path; $($body:tt)* ) => {
-        impl<D: ::DataBuf, T: ?Sized> $t for super::FifoA<T, D>
+        impl<D: ::DataBuf, T: ?Sized> $t for super::Fifo<T, D>
         where
             T: $t,
         {

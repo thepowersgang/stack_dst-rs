@@ -1,6 +1,6 @@
 extern crate stack_dst;
 
-type DstFifo<T> = stack_dst::FifoA<T, ::stack_dst::buffers::Ptr8>;
+type DstFifo<T> = stack_dst::Fifo<T, ::stack_dst::buffers::Ptr8>;
 
 #[test]
 // A trivial check that ensures that methods are correctly called
@@ -60,7 +60,7 @@ fn retain() {
             self
         }
     }
-    let mut stack: ::stack_dst::FifoA<dyn AsRef<Sentinel>,::stack_dst::buffers::Ptr16> = ::stack_dst::FifoA::new();
+    let mut stack: ::stack_dst::Fifo<dyn AsRef<Sentinel>, ::stack_dst::buffers::Ptr16> = ::stack_dst::Fifo::new();
     stack.push_back_stable(Sentinel(0), |v| v).ok().unwrap();
     stack.push_back_stable(Sentinel(1), |v| v).ok().unwrap();
     stack.push_back_stable(Sentinel(2), |v| v).ok().unwrap();
@@ -82,34 +82,34 @@ fn retain() {
 #[cfg(not(feature="full_const_generics"))]
 mod unaligned {
     use std::any::Any;
-    use stack_dst::FifoA;
+    use stack_dst::Fifo;
     type Buf8_16 = ::stack_dst::buffers::ArrayBuf<u8, ::stack_dst::buffers::n::U16>;
     #[test] #[should_panic]
     fn push_back_stable() {
-        let mut stack = FifoA::<dyn Any, Buf8_16>::new();
+        let mut stack = Fifo::<dyn Any, Buf8_16>::new();
         let _ = stack.push_back_stable(123u32, |v| v as _);
     }
     #[test] #[should_panic]
     #[cfg(feature = "unsize")]
     fn push_back() {
-        let mut stack = FifoA::<dyn Any, Buf8_16>::new();
+        let mut stack = Fifo::<dyn Any, Buf8_16>::new();
         let _ = stack.push_back(123u32);
     }
 
     #[test] #[should_panic]
     fn push_cloned() {
-        let mut stack = FifoA::<[u32], Buf8_16>::new();
+        let mut stack = Fifo::<[u32], Buf8_16>::new();
         let _ = stack.push_cloned(&[123u32]);
     }
 
     #[test] #[should_panic]
     fn push_copied() {
-        let mut stack = FifoA::<[u32], Buf8_16>::new();
+        let mut stack = Fifo::<[u32], Buf8_16>::new();
         let _ = stack.push_copied(&[123u32]);
     }
     #[test] #[should_panic]
     fn push_from_iter() {
-        let mut stack = FifoA::<[u32], Buf8_16>::new();
+        let mut stack = Fifo::<[u32], Buf8_16>::new();
         let _ = stack.push_from_iter(0..1);
     }
 }

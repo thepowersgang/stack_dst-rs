@@ -10,9 +10,9 @@
 //!
 //! ```rust
 //! # use std::any::Any;
-//! # use stack_dst::ValueA;
+//! # use stack_dst::Value;
 //! #
-//! let dst = ValueA::<dyn Any, ::stack_dst::buffers::Ptr2>::new_stable(1234u64, |p| p as _)
+//! let dst = Value::<dyn Any, ::stack_dst::buffers::Ptr2>::new_stable(1234u64, |p| p as _)
 //!     .ok().expect("Integer did not fit in allocation");
 //! println!("dst as u64 = {:?}", dst.downcast_ref::<u64>());
 //! println!("dst as i8 = {:?}", dst.downcast_ref::<i8>());
@@ -22,10 +22,10 @@
 //! The following snippet shows how small (`'static`) closures can be returned using this crate
 //!
 //! ```rust
-//! # use stack_dst::ValueA;
+//! # use stack_dst::Value;
 //! #
-//! fn make_closure(value: u64) -> ValueA<dyn FnMut()->String, ::stack_dst::array_buf![u64; U2]> {
-//!     ValueA::new_stable(move || format!("Hello there! value={}", value), |p| p as _)
+//! fn make_closure(value: u64) -> Value<dyn FnMut()->String, ::stack_dst::array_buf![u64; U2]> {
+//!     Value::new_stable(move || format!("Hello there! value={}", value), |p| p as _)
 //!         .ok().expect("Closure doesn't fit")
 //! }
 //! let mut closure = make_closure(666);
@@ -37,22 +37,22 @@
 //!
 //! This code panics, because i128 requires 8/16 byte alignment (usually)
 //! ```should_panic
-//! # use stack_dst::ValueA;
+//! # use stack_dst::Value;
 //! # use std::any::Any;
-//! let v: ValueA<dyn Any, ::stack_dst::buffers::U8_32> = ValueA::new_stable(123i128, |p| p as _).unwrap();
+//! let v: Value<dyn Any, ::stack_dst::buffers::U8_32> = Value::new_stable(123i128, |p| p as _).unwrap();
 //! ```
 //! This works, because the backing buffer has sufficient alignment
 //! ```rust
-//! # use stack_dst::ValueA;
+//! # use stack_dst::Value;
 //! # use std::any::Any;
-//! let v: ValueA<dyn Any, ::stack_dst::array_buf![u128; U2]> = ValueA::new_stable(123i128, |p| p as _).unwrap();
+//! let v: Value<dyn Any, ::stack_dst::array_buf![u128; U2]> = Value::new_stable(123i128, |p| p as _).unwrap();
 //! ```
 //!
 //! # Feature flags
 //! ## `alloc` (default)
 //! Provides the `StackDstA::new_or_boxed` method (if `unsize` feature is active too)
 //! ## `const_generics` (default)
-//! Uses value/constant generics to provide a slightly nicer API
+//! Uses value/constant generics to provide a slightly nicer API (e.g. [ValueU])
 //! ## `unsize` (optional)
 //! Uses the nightly feature `unsize` to provide a more egonomic API (no need for the `|p| p` closures)
 // //! ## `full_const_generics` (optional)
@@ -86,9 +86,9 @@ mod data_buf;
 pub use self::data_buf::DataBuf;
 pub use self::data_buf::Pod;
 
-pub use fifo::FifoA;
-pub use stack::StackA;
-pub use value::ValueA;
+pub use fifo::Fifo;
+pub use stack::Stack;
+pub use value::Value;
 
 /// Shorthand for defining a array buffer
 /// 
@@ -105,56 +105,105 @@ macro_rules! array_buf {
 /// - [Ptr8] is the semi-standard buffer for holding a single object (a good balance of space used)
 /// - [Ptr2] is suitable for storing a single pointer and its vtable
 pub mod buffers {
-    use ::core::mem::MaybeUninit;
-
     /// A re-export of `typenum` for shorter names
     pub use ::generic_array::typenum as n;
-    /// A buffer backing onto an array (used to provide default)
-    pub struct ArrayBuf<T, N>
-    where
-        N: ::generic_array::ArrayLength<MaybeUninit<T>>,
-    {
-        inner: ::generic_array::GenericArray<MaybeUninit<T>, N>,
-    }
-    impl<T, N> AsRef<crate::BufSlice<T>> for ArrayBuf<T, N>
-    where
-        N: ::generic_array::ArrayLength<MaybeUninit<T>>,
-    {
-        fn as_ref(&self) -> &crate::BufSlice<T> {
-            &self.inner
+    pub use self::array_buf::ArrayBuf;
+    #[cfg(feature="const_generics")]
+    pub use self::cg_array_buf::ArrayBuf as ConstArrayBuf;
+
+    mod array_buf {
+        use ::core::mem::MaybeUninit;
+
+        /// A buffer backing onto an array (used to provide default)
+        pub struct ArrayBuf<T, N>
+        where
+            N: ::generic_array::ArrayLength<MaybeUninit<T>>,
+        {
+            inner: ::generic_array::GenericArray<MaybeUninit<T>, N>,
         }
-    }
-    impl<T, N> AsMut<crate::BufSlice<T>> for ArrayBuf<T, N>
-    where
-        N: ::generic_array::ArrayLength<MaybeUninit<T>>,
-    {
-        fn as_mut(&mut self) -> &mut crate::BufSlice<T> {
-            &mut self.inner
+        impl<T, N> AsRef<crate::BufSlice<T>> for ArrayBuf<T, N>
+        where
+            N: ::generic_array::ArrayLength<MaybeUninit<T>>,
+        {
+            fn as_ref(&self) -> &crate::BufSlice<T> {
+                &self.inner
+            }
         }
-    }
-    impl<T, N> ::core::default::Default for ArrayBuf<T, N>
-    where
-        N: ::generic_array::ArrayLength<MaybeUninit<T>>,
-    {
-        fn default() -> Self {
-            ArrayBuf {
-                // `unwarp` won't fail, lengths match
-                inner: ::generic_array::GenericArray::from_exact_iter( (0 .. N::USIZE).map(|_| MaybeUninit::uninit()) ).unwrap(),
+        impl<T, N> AsMut<crate::BufSlice<T>> for ArrayBuf<T, N>
+        where
+            N: ::generic_array::ArrayLength<MaybeUninit<T>>,
+        {
+            fn as_mut(&mut self) -> &mut crate::BufSlice<T> {
+                &mut self.inner
+            }
+        }
+        impl<T, N> ::core::default::Default for ArrayBuf<T, N>
+        where
+            N: ::generic_array::ArrayLength<MaybeUninit<T>>,
+        {
+            fn default() -> Self {
+                ArrayBuf {
+                    // `unwarp` won't fail, lengths match
+                    inner: ::generic_array::GenericArray::from_exact_iter( (0 .. N::USIZE).map(|_| MaybeUninit::uninit()) ).unwrap(),
+                }
+            }
+        }
+        unsafe impl<T,N> crate::DataBuf for ArrayBuf<T, N>
+        where
+            T: crate::Pod,
+            N: ::generic_array::ArrayLength<MaybeUninit<T>>,
+        {
+            type Inner = T;
+            fn extend(&mut self, len: usize) -> Result<(), ()> {
+                if len > N::USIZE {
+                    Err( () )
+                }
+                else {
+                    Ok( () )
+                }
             }
         }
     }
-    unsafe impl<T,N> crate::DataBuf for ArrayBuf<T, N>
-    where
-        T: crate::Pod,
-        N: ::generic_array::ArrayLength<MaybeUninit<T>>,
-    {
-        type Inner = T;
-        fn extend(&mut self, len: usize) -> Result<(), ()> {
-            if len > N::USIZE {
-                Err( () )
+
+    #[cfg(feature="const_generics")]
+    mod cg_array_buf {
+        /// A buffer backing onto an array (used to provide default) - using constant generics
+        pub struct ArrayBuf<T, const N: usize>
+        {
+            inner: [::core::mem::MaybeUninit<T>; N],
+        }
+        impl<T, const N: usize> AsRef<crate::BufSlice<T>> for ArrayBuf<T, N> {
+            fn as_ref(&self) -> &crate::BufSlice<T> {
+                &self.inner
             }
-            else {
-                Ok( () )
+        }
+        impl<T, const N: usize> AsMut<crate::BufSlice<T>> for ArrayBuf<T, N> {
+            fn as_mut(&mut self) -> &mut crate::BufSlice<T> {
+                &mut self.inner
+            }
+        }
+        impl<T:, const N: usize> ::core::default::Default for ArrayBuf<T, N>
+        where
+            T: crate::Pod,
+        {
+            fn default() -> Self {
+                ArrayBuf {
+                    inner: [::core::mem::MaybeUninit::uninit(); N],
+                }
+            }
+        }
+        unsafe impl<T,const N: usize> crate::DataBuf for ArrayBuf<T, N>
+        where
+            T: crate::Pod,
+        {
+            type Inner = T;
+            fn extend(&mut self, len: usize) -> Result<(), ()> {
+                if len > N {
+                    Err( () )
+                }
+                else {
+                    Ok( () )
+                }
             }
         }
     }
@@ -179,13 +228,13 @@ pub mod buffers {
 
     /// Dyanamically allocated buffer with 8-byte alignment
     #[cfg(feature="alloc")]
-    pub type U64Vec = ::alloc::vec::Vec<MaybeUninit<u64>>;
+    pub type U64Vec = ::alloc::vec::Vec<::core::mem::MaybeUninit<u64>>;
     /// Dyanamically allocated buffer with 1-byte alignment
     #[cfg(feature="alloc")]
-    pub type U8Vec = ::alloc::vec::Vec<MaybeUninit<u8>>;
+    pub type U8Vec = ::alloc::vec::Vec<::core::mem::MaybeUninit<u8>>;
     /// Dyanamically allocated buffer with pointer alignment
     #[cfg(feature="alloc")]
-    pub type PtrVec = ::alloc::vec::Vec<MaybeUninit<*const ()>>;
+    pub type PtrVec = ::alloc::vec::Vec<::core::mem::MaybeUninit<*const ()>>;
 }
 
 /// Implementation of the FIFO list structure
@@ -196,14 +245,28 @@ pub mod stack;
 pub mod value;
 
 #[cfg(feature = "const_generics")]
-/// A single LIFO stack of DSTs
-pub type Stack<T /*: ?Sized*/, const N: usize /* = 16*/> = StackA<T, [MaybeUninit<usize>; N]>;
+/// A single dynamically-sized value stored in a `usize` aligned buffer
+/// 
+/// ```
+/// let v = ::stack_dst::ValueU::<[u8], 16>::new_stable([1,2,3], |v| v);
+/// ```
+pub type ValueU<T /*: ?Sized*/, const N: usize /* = {8+1}*/> = Value<T, buffers::ConstArrayBuf<usize, N>>;
 #[cfg(feature = "const_generics")]
-/// A single dynamically-sized value
-pub type Value<T /*: ?Sized*/, const N: usize /* = {8+1}*/> = ValueA<T, [MaybeUninit<usize>; N]>;
+/// A single LIFO stack of DSTs using a `usize` aligned buffer
+/// 
+/// ```
+/// let mut stack = ::stack_dst::StackU::<[u8], 16>::new();
+/// stack.push_copied(&[1]);
+/// ```
+pub type StackU<T /*: ?Sized*/, const N: usize /* = 16*/> = Stack<T, buffers::ConstArrayBuf<usize, N>>;
 #[cfg(feature = "const_generics")]
-/// A FIFO queue of DSTs
-pub type Fifo<T /*: ?Sized*/, const N: usize /* = {8+1}*/> = FifoA<T, [MaybeUninit<usize>; N]>;
+/// A FIFO queue of DSTs using a `usize` aligned buffer
+/// 
+/// ```
+/// let mut queue = ::stack_dst::FifoU::<[u8], 16>::new();
+/// queue.push_copied(&[1]);
+/// ```
+pub type FifoU<T /*: ?Sized*/, const N: usize /* = {8+1}*/> = Fifo<T, buffers::ConstArrayBuf<usize, N>>;
 
 fn decompose_pointer<T: ?Sized>(mut ptr: *const T) -> (*const (), usize, [usize; 3]) {
     let addr = ptr as *const ();
