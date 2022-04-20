@@ -48,7 +48,7 @@
 //! let v: ValueA<dyn Any, ::stack_dst::array_buf![u128; U2]> = ValueA::new_stable(123i128, |p| p as _).unwrap();
 //! ```
 //!
-//! # Features
+//! # Feature flags
 //! ## `alloc` (default)
 //! Provides the `StackDstA::new_or_boxed` method (if `unsize` feature is active too)
 //! ## `const_generics` (default)
@@ -197,13 +197,13 @@ pub mod value;
 
 #[cfg(feature = "const_generics")]
 /// A single LIFO stack of DSTs
-pub type Stack<T /*: ?Sized*/, const N: usize /* = 16*/> = StackA<T, [usize; N]>;
+pub type Stack<T /*: ?Sized*/, const N: usize /* = 16*/> = StackA<T, [MaybeUninit<usize>; N]>;
 #[cfg(feature = "const_generics")]
 /// A single dynamically-sized value
-pub type Value<T /*: ?Sized*/, const N: usize /* = {8+1}*/> = ValueA<T, [usize; N]>;
+pub type Value<T /*: ?Sized*/, const N: usize /* = {8+1}*/> = ValueA<T, [MaybeUninit<usize>; N]>;
 #[cfg(feature = "const_generics")]
 /// A FIFO queue of DSTs
-pub type Fifo<T /*: ?Sized*/, const N: usize /* = {8+1}*/> = FifoA<T, [usize; N]>;
+pub type Fifo<T /*: ?Sized*/, const N: usize /* = {8+1}*/> = FifoA<T, [MaybeUninit<usize>; N]>;
 
 fn decompose_pointer<T: ?Sized>(mut ptr: *const T) -> (*const (), usize, [usize; 3]) {
     let addr = ptr as *const ();
@@ -351,7 +351,9 @@ unsafe impl<S, L> AlignmentValid for (S, L) {
     }
 }
 
+/*
 #[cfg(doctest)]
 #[doc=include_str!("../README.md")]
 pub mod readme {
 }
+*/

@@ -10,9 +10,8 @@ keywords = ["stack", "dst"]
 license = "MIT OR Apache-2.0"
 
 [features]
-default = ["std", "alloc", "const_generics"]
+default = [ "alloc", "const_generics" ]
 
-std = []
 alloc = []
 unsize = []
 const_generics = []
