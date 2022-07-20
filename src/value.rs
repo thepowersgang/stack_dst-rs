@@ -100,7 +100,7 @@ impl<T: ?Sized, D: ::DataBuf> ValueA<T, D> {
         D: Default,
     {
         Self::new(val).unwrap_or_else(|val| {
-            Self::new(Box::new(val))
+            Self::new(::alloc::boxed::Box::new(val))
                 .ok()
                 .expect("Insufficient space for Box<T>")
         })
