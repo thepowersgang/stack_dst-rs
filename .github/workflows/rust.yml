@@ -31,6 +31,7 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
         toolchain: nightly
+        components: miri
         override: true
     - name: Install cargo-hack
       run: cargo install cargo-hack
@@ -38,3 +39,5 @@ jobs:
       run: cargo test --all-features
     - name: Check feature combinations
       run: cargo hack check --feature-powerset --no-dev-deps
+    - name: Run `miri`
+      run: cargo miri test --all-features
