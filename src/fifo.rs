@@ -228,10 +228,12 @@ impl<T: ?Sized, D: ::DataBuf> Fifo<T, D> {
             let words = Self::meta_words() + D::round_to_words(mem::size_of_val(v));
             if cb(v) {
                 if writeback_pos != ofs {
-                    let src: *const _ = self.data.as_ref()[ofs..].as_ptr();
-                    let dst: *mut _ = self.data.as_mut()[writeback_pos..].as_mut_ptr();
-                    // SAFE: Pointers are valid, length is correct
-                    unsafe { ptr::copy(src, dst, words); }
+                    let d = self.data.as_mut();
+                    // writeback is always before `ofs`, so this ordering is correct
+                    for i in 0..words {
+                        let (a,b) = d.split_at_mut(ofs+i);
+                        a[writeback_pos+i] = b[0];
+                    }
                 }
                 writeback_pos += words;
             }
