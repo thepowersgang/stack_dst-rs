@@ -127,7 +127,7 @@ unsafe impl<T: Pod, const N: usize> DataBuf for [MaybeUninit<T>; N] {
 ///   println!("{}", line);
 /// }
 /// ```
-#[cfg(all(feature = "alloc"))]
+#[cfg(feature = "alloc")]
 unsafe impl<T: Pod> crate::DataBuf for ::alloc::vec::Vec<MaybeUninit<T>> {
     type Inner = T;
     fn as_ref(&self) -> &[MaybeUninit<Self::Inner>] {

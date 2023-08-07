@@ -63,6 +63,11 @@
 #![cfg_attr(feature = "full_const_generics", allow(incomplete_features))]
 #![no_std]
 #![deny(missing_docs)]
+#![allow(
+    clippy::missing_safety_doc,
+    clippy::redundant_pattern_matching,
+    clippy::result_unit_err
+)]
 
 use core::mem::MaybeUninit;
 use core::{mem, ptr, slice};
@@ -305,7 +310,7 @@ unsafe fn make_fat_ptr<T: ?Sized, W: Pod>(data_ptr: *mut (), meta_vals: &BufSlic
 }
 /// Write metadata (abstraction around `ptr::copy`)
 fn store_metadata<W: Pod>(dst: &mut BufSlice<W>, meta_words: &[usize]) {
-    let n_bytes = meta_words.len() * mem::size_of::<usize>();
+    let n_bytes = core::mem::size_of_val(meta_words);
     assert!(
         n_bytes <= dst.len() * mem::size_of::<W>(),
         "nbytes [{}] <= dst.len() [{}] * sizeof [{}]",

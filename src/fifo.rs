@@ -300,7 +300,7 @@ impl<T: ?Sized, D: ::DataBuf> Fifo<T, D> {
 
         // Increment offset and return
         Ok(PushInnerInfo {
-            meta: meta,
+            meta,
             data: rv,
             reset_slot: &mut self.write_pos,
             reset_value: prev_write_pos,

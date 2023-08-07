@@ -348,7 +348,7 @@ impl<D: ::DataBuf> Value<str, D> {
         unsafe {
             ptr::copy_nonoverlapping(
                 val.as_ptr(),
-                (data.as_mut_ptr() as *mut u8).offset(ofs as isize),
+                (data.as_mut_ptr() as *mut u8).add(ofs),
                 val.len(),
             );
             crate::store_metadata(&mut data[info_ofs..], &[ofs + val.len()]);
@@ -393,7 +393,7 @@ where
         <(I, D::Inner) as crate::AlignmentValid>::check();
 
         let info_words = D::round_to_words(mem::size_of::<usize>());
-        let req_words = info_words + 0;
+        let req_words = info_words;
         if let Err(_) = buffer.extend(req_words) {
             return Err(());
         }
@@ -428,7 +428,7 @@ where
         // Write the new value
         // SAFE: Alignment is checked, pointer is in-bounds
         unsafe {
-            let data_ptr = (data.as_ptr() as *mut I).offset(ofs as isize);
+            let data_ptr = (data.as_ptr() as *mut I).add(ofs);
             ptr::write(data_ptr, v);
         }
         // Only update item count after the write
@@ -472,7 +472,7 @@ where
             let info_ofs = data.len() - info_words;
             unsafe {
                 crate::store_metadata(&mut data[info_ofs..], &[ofs]);
-                Some(ptr::read((data.as_ptr() as *const I).offset(ofs as isize)))
+                Some(ptr::read((data.as_ptr() as *const I).add(ofs)))
             }
         } else {
             None
