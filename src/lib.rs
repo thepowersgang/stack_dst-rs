@@ -1,7 +1,7 @@
 //! Support for storing dynamically-sized types within fixed-size allocations
 //!
-//! - The `Value` type provides a fixed size (7 word in the current version) buffer in which a trait object
-//!   or array can be stored, without resorting to a heap allocation.
+//! - The `Value` type provides a fixed size (7 word in the current version) buffer in which
+//!   a trait object or array can be stored, without resorting to a heap allocation.
 //! - The `Fifo` and `Stack` types provide collection types (first-in-first-out and last-in-first-out).
 //!
 //! # Examples
@@ -12,7 +12,7 @@
 //! # use std::any::Any;
 //! # use stack_dst::Value;
 //! #
-//! let dst = Value::<dyn Any, ::stack_dst::buffers::Ptr2>::new_stable(1234u64, |p| p as _)
+//! let dst = Value::<dyn Any, ::stack_dst::buffers::Ptr2>::new_stable(1234u64, |p| p)
 //!     .ok().expect("Integer did not fit in allocation");
 //! println!("dst as u64 = {:?}", dst.downcast_ref::<u64>());
 //! println!("dst as i8 = {:?}", dst.downcast_ref::<i8>());
@@ -33,19 +33,22 @@
 //! ```
 //!
 //! ## Custom allocation sizes/types
-//! If you need larger alignment, you can use a different type for the backing array. (Note, that metadata uses at least one slot in the array)
+//! If you need larger alignment, you can use a different type for the backing array.
+//! (Note, that metadata uses at least one slot in the array)
 //!
 //! This code panics, because i128 requires 8/16 byte alignment (usually)
 //! ```should_panic
 //! # use stack_dst::Value;
 //! # use std::any::Any;
-//! let v: Value<dyn Any, ::stack_dst::buffers::U8_32> = Value::new_stable(123i128, |p| p as _).unwrap();
+//! let v: Value<dyn Any, ::stack_dst::buffers::U8_32> =
+//!     Value::new_stable(123i128, |p| p as _).unwrap();
 //! ```
 //! This works, because the backing buffer has sufficient alignment
 //! ```rust
 //! # use stack_dst::Value;
 //! # use std::any::Any;
-//! let v: Value<dyn Any, ::stack_dst::array_buf![u128; U2]> = Value::new_stable(123i128, |p| p as _).unwrap();
+//! let v: Value<dyn Any, ::stack_dst::array_buf![u128; U2]> =
+//!     Value::new_stable(123i128, |p| p as _).unwrap();
 //! ```
 //!
 //! # Feature flags
@@ -54,7 +57,8 @@
 //! ## `const_generics` (default)
 //! Uses value/constant generics to provide a slightly nicer API (e.g. [ValueU])
 //! ## `unsize` (optional)
-//! Uses the nightly feature `unsize` to provide a more egonomic API (no need for the `|p| p` closures)
+//! Uses the nightly feature `unsize` to provide a more egonomic API
+//! (no need for the `|p| p` closures)
 // //! ## `full_const_generics` (optional)
 // //! Uses extended const generics to give compile time alignment errors
 //!
@@ -95,18 +99,21 @@ pub use value::Value;
 /// Shorthand for defining a array buffer
 ///
 /// The array size must be a typenum unsigned integer (e.g `U8`)
-/// E.g. `array_buf![u8; U32]` expands to `::stack_dst::buffers::ArrayBuf<u8, ::stack_dst::buffers::n::::U32>`
+/// E.g. `array_buf![u8; U32]` expands to
+/// `::stack_dst::buffers::ArrayBuf<u8, ::stack_dst::buffers::n::::U32>`
 #[macro_export]
 macro_rules! array_buf {
     ($t:ty; $n:ident) => { $crate::buffers::ArrayBuf<$t, $crate::buffers::n::$n> }
 }
 
-/// Type aliases for common buffer sizes and types
-///
-/// Some useful suggestions
-/// - [Ptr8] is the semi-standard buffer for holding a single object (a good balance of space used)
-/// - [Ptr2] is suitable for storing a single pointer and its vtable
 pub mod buffers {
+    //! Type aliases for common buffer sizes and types
+    //!
+    //! Some useful suggestions:
+    //! - [`Ptr8`] is the semi-standard buffer for holding a single object
+    //!   (a good balance of space used)
+    //! - [`Ptr2`] is suitable for storing a single pointer and its vtable
+
     pub use self::array_buf::ArrayBuf;
     #[cfg(feature = "const_generics")]
     pub use self::cg_array_buf::ArrayBuf as ConstArrayBuf;
