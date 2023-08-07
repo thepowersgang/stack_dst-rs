@@ -151,7 +151,7 @@ fn slice_push_panic_safety_unaligned() {
     struct Sentinel(bool);
     impl Clone for Sentinel {
         fn clone(&self) -> Self {
-            if ! self.0 {
+            if !self.0 {
                 panic!();
             } else {
                 Sentinel(self.0)
@@ -165,43 +165,51 @@ fn slice_push_panic_safety_unaligned() {
     }
     let input = [
         // 1 good followed by one bad
-        Sentinel(true), Sentinel(false)
-        ];
+        Sentinel(true),
+        Sentinel(false),
+    ];
 
     let _ = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
-        let mut stack = ::stack_dst::Stack::<[Sentinel], _>::with_buffer([::std::mem::MaybeUninit::new(0xFFu8); 32]);
+        let mut stack = ::stack_dst::Stack::<[Sentinel], _>::with_buffer(
+            [::std::mem::MaybeUninit::new(0xFFu8); 32],
+        );
         let _ = stack.push_cloned(&input);
     }));
     assert_eq!(COUNT.load(Ordering::SeqCst), 1);
 }
 
-#[cfg(not(feature="full_const_generics"))]
+#[cfg(not(feature = "full_const_generics"))]
 mod unaligned {
-    use std::any::Any;
     use stack_dst::Stack;
+    use std::any::Any;
     type Buf8_16 = ::stack_dst::buffers::ArrayBuf<u8, ::stack_dst::buffers::n::U16>;
-    #[test] #[should_panic]
+    #[test]
+    #[should_panic]
     fn push_stable() {
         let mut stack = Stack::<dyn Any, Buf8_16>::new();
         let _ = stack.push_stable(123u32, |v| v as _);
     }
-    #[test] #[should_panic]
+    #[test]
+    #[should_panic]
     #[cfg(feature = "unsize")]
     fn push() {
         let mut stack = Stack::<dyn Any, Buf8_16>::new();
         let _ = stack.push(123u32);
     }
-    #[test] #[should_panic]
+    #[test]
+    #[should_panic]
     fn push_cloned() {
         let mut stack = Stack::<[u32], Buf8_16>::new();
         let _ = stack.push_cloned(&[123u32]);
     }
-    #[test] #[should_panic]
+    #[test]
+    #[should_panic]
     fn push_copied() {
         let mut stack = Stack::<[u32], Buf8_16>::new();
         let _ = stack.push_copied(&[123u32]);
     }
-    #[test] #[should_panic]
+    #[test]
+    #[should_panic]
     fn push_from_iter() {
         let mut stack = Stack::<[u32], Buf8_16>::new();
         let _ = stack.push_from_iter(0..1);

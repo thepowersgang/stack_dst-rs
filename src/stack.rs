@@ -198,7 +198,6 @@ struct PushInnerInfo<'a, DInner> {
     reset_value: usize,
 }
 impl<T: ?Sized, D: ::DataBuf> Stack<T, D> {
-
     /// See `push_inner_raw`
     unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<PushInnerInfo<D::Inner>, ()> {
         let bytes = mem::size_of_val(fat_ptr);
@@ -210,8 +209,12 @@ impl<T: ?Sized, D: ::DataBuf> Stack<T, D> {
     /// - metadata slot
     /// - data slot
     /// - Total words used
-    unsafe fn push_inner_raw(&mut self, bytes: usize, metadata: &[usize]) -> Result<PushInnerInfo<D::Inner>, ()> {
-        assert!( D::round_to_words(mem::size_of_val(metadata)) == Self::meta_words() );
+    unsafe fn push_inner_raw(
+        &mut self,
+        bytes: usize,
+        metadata: &[usize],
+    ) -> Result<PushInnerInfo<D::Inner>, ()> {
+        assert!(D::round_to_words(mem::size_of_val(metadata)) == Self::meta_words());
         let words = D::round_to_words(bytes) + Self::meta_words();
 
         let req_space = self.next_ofs + words;
@@ -241,8 +244,8 @@ impl<T: ?Sized, D: ::DataBuf> Stack<T, D> {
                 meta,
                 data: rv,
                 reset_slot: &mut self.next_ofs,
-                reset_value: prev_next_ofs
-                })
+                reset_value: prev_next_ofs,
+            })
         } else {
             Err(())
         }
@@ -259,8 +262,13 @@ impl<D: ::DataBuf> Stack<str, D> {
     /// ```
     pub fn push_str(&mut self, v: &str) -> Result<(), ()> {
         unsafe {
-            self.push_inner(v)
-                .map(|pii| ptr::copy(v.as_bytes().as_ptr(), pii.data.as_mut_ptr() as *mut u8, v.len()))
+            self.push_inner(v).map(|pii| {
+                ptr::copy(
+                    v.as_bytes().as_ptr(),
+                    pii.data.as_mut_ptr() as *mut u8,
+                    v.len(),
+                )
+            })
         }
     }
 }
@@ -308,7 +316,7 @@ where
     (T, D::Inner): crate::AlignmentValid,
 {
     /// Push an item, populated from an exact-sized iterator
-    /// 
+    ///
     /// ```
     /// # extern crate core;
     /// # use stack_dst::Stack;
@@ -317,13 +325,20 @@ where
     /// stack.push_from_iter(0..10);
     /// assert_eq!(stack.top().unwrap(), &[0,1,2,3,4,5,6,7,8,9]);
     /// ```
-    pub fn push_from_iter(&mut self, mut iter: impl ExactSizeIterator<Item=T>) -> Result<(),()> {
+    pub fn push_from_iter(&mut self, mut iter: impl ExactSizeIterator<Item = T>) -> Result<(), ()> {
         <(T, D::Inner) as crate::AlignmentValid>::check();
         // SAFE: API used correctly
         unsafe {
             let pii = self.push_inner_raw(iter.len() * mem::size_of::<T>(), &[0])?;
-            crate::list_push_gen(pii.meta, pii.data, iter.len(), |_| iter.next().unwrap(), pii.reset_slot, pii.reset_value);
-            Ok( () )
+            crate::list_push_gen(
+                pii.meta,
+                pii.data,
+                iter.len(),
+                |_| iter.next().unwrap(),
+                pii.reset_slot,
+                pii.reset_value,
+            );
+            Ok(())
         }
     }
 }
