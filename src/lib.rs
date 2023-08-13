@@ -1,7 +1,7 @@
 //! Support for storing dynamically-sized types within fixed-size allocations
 //!
-//! - The `Value` type provides a fixed size (7 word in the current version) buffer in which a trait object
-//!   or array can be stored, without resorting to a heap allocation.
+//! - The `Value` type provides a fixed size (7 word in the current version) buffer in which
+//!   a trait object or array can be stored, without resorting to a heap allocation.
 //! - The `Fifo` and `Stack` types provide collection types (first-in-first-out and last-in-first-out).
 //!
 //! # Examples
@@ -12,7 +12,7 @@
 //! # use std::any::Any;
 //! # use stack_dst::Value;
 //! #
-//! let dst = Value::<dyn Any, ::stack_dst::buffers::Ptr2>::new_stable(1234u64, |p| p as _)
+//! let dst = Value::<dyn Any, ::stack_dst::buffers::Ptr2>::new_stable(1234u64, |p| p)
 //!     .ok().expect("Integer did not fit in allocation");
 //! println!("dst as u64 = {:?}", dst.downcast_ref::<u64>());
 //! println!("dst as i8 = {:?}", dst.downcast_ref::<i8>());
@@ -33,19 +33,22 @@
 //! ```
 //!
 //! ## Custom allocation sizes/types
-//! If you need larger alignment, you can use a different type for the backing array. (Note, that metadata uses at least one slot in the array)
+//! If you need larger alignment, you can use a different type for the backing array.
+//! (Note, that metadata uses at least one slot in the array)
 //!
 //! This code panics, because i128 requires 8/16 byte alignment (usually)
 //! ```should_panic
 //! # use stack_dst::Value;
 //! # use std::any::Any;
-//! let v: Value<dyn Any, ::stack_dst::buffers::U8_32> = Value::new_stable(123i128, |p| p as _).unwrap();
+//! let v: Value<dyn Any, ::stack_dst::buffers::U8_32> =
+//!     Value::new_stable(123i128, |p| p as _).unwrap();
 //! ```
 //! This works, because the backing buffer has sufficient alignment
 //! ```rust
 //! # use stack_dst::Value;
 //! # use std::any::Any;
-//! let v: Value<dyn Any, ::stack_dst::array_buf![u128; U2]> = Value::new_stable(123i128, |p| p as _).unwrap();
+//! let v: Value<dyn Any, ::stack_dst::array_buf![u128; U2]> =
+//!     Value::new_stable(123i128, |p| p as _).unwrap();
 //! ```
 //!
 //! # Feature flags
@@ -54,21 +57,24 @@
 //! ## `const_generics` (default)
 //! Uses value/constant generics to provide a slightly nicer API (e.g. [ValueU])
 //! ## `unsize` (optional)
-//! Uses the nightly feature `unsize` to provide a more egonomic API (no need for the `|p| p` closures)
+//! Uses the nightly feature `unsize` to provide a more egonomic API
+//! (no need for the `|p| p` closures)
 // //! ## `full_const_generics` (optional)
 // //! Uses extended const generics to give compile time alignment errors
 //!
 #![cfg_attr(feature = "unsize", feature(unsize))] // needed for Unsize
-#![cfg_attr(
-    feature = "full_const_generics",
-    feature(generic_const_exprs)
-)]
+#![cfg_attr(feature = "full_const_generics", feature(generic_const_exprs))]
 #![cfg_attr(feature = "full_const_generics", allow(incomplete_features))]
 #![no_std]
 #![deny(missing_docs)]
+#![allow(
+    clippy::missing_safety_doc,
+    clippy::redundant_pattern_matching,
+    clippy::result_unit_err
+)]
 
+use core::mem::MaybeUninit;
 use core::{mem, ptr, slice};
-use ::core::mem::MaybeUninit;
 
 // Internal helper
 type BufSlice<T> = [MaybeUninit<T>];
@@ -91,28 +97,31 @@ pub use stack::Stack;
 pub use value::Value;
 
 /// Shorthand for defining a array buffer
-/// 
+///
 /// The array size must be a typenum unsigned integer (e.g `U8`)
-/// E.g. `array_buf![u8; U32]` expands to `::stack_dst::buffers::ArrayBuf<u8, ::stack_dst::buffers::n::::U32>`
+/// E.g. `array_buf![u8; U32]` expands to
+/// `::stack_dst::buffers::ArrayBuf<u8, ::stack_dst::buffers::n::::U32>`
 #[macro_export]
 macro_rules! array_buf {
     ($t:ty; $n:ident) => { $crate::buffers::ArrayBuf<$t, $crate::buffers::n::$n> }
 }
 
-/// Type aliases for common buffer sizes and types
-/// 
-/// Some useful suggestions
-/// - [Ptr8] is the semi-standard buffer for holding a single object (a good balance of space used)
-/// - [Ptr2] is suitable for storing a single pointer and its vtable
 pub mod buffers {
-    /// A re-export of `typenum` for shorter names
-    pub use ::generic_array::typenum as n;
+    //! Type aliases for common buffer sizes and types
+    //!
+    //! Some useful suggestions:
+    //! - [`Ptr8`] is the semi-standard buffer for holding a single object
+    //!   (a good balance of space used)
+    //! - [`Ptr2`] is suitable for storing a single pointer and its vtable
+
     pub use self::array_buf::ArrayBuf;
-    #[cfg(feature="const_generics")]
+    #[cfg(feature = "const_generics")]
     pub use self::cg_array_buf::ArrayBuf as ConstArrayBuf;
+    /// A re-export of `typenum` for shorter names
+    pub use generic_array::typenum as n;
 
     mod array_buf {
-        use ::core::mem::MaybeUninit;
+        use core::mem::MaybeUninit;
 
         /// A buffer backing onto an array (used to provide default)
         pub struct ArrayBuf<T, N>
@@ -128,11 +137,14 @@ pub mod buffers {
             fn default() -> Self {
                 ArrayBuf {
                     // `unwarp` won't fail, lengths match
-                    inner: ::generic_array::GenericArray::from_exact_iter( (0 .. N::USIZE).map(|_| MaybeUninit::uninit()) ).unwrap(),
+                    inner: ::generic_array::GenericArray::from_exact_iter(
+                        (0..N::USIZE).map(|_| MaybeUninit::uninit()),
+                    )
+                    .unwrap(),
                 }
             }
         }
-        unsafe impl<T,N> crate::DataBuf for ArrayBuf<T, N>
+        unsafe impl<T, N> crate::DataBuf for ArrayBuf<T, N>
         where
             T: crate::Pod,
             N: ::generic_array::ArrayLength<MaybeUninit<T>>,
@@ -146,23 +158,21 @@ pub mod buffers {
             }
             fn extend(&mut self, len: usize) -> Result<(), ()> {
                 if len > N::USIZE {
-                    Err( () )
-                }
-                else {
-                    Ok( () )
+                    Err(())
+                } else {
+                    Ok(())
                 }
             }
         }
     }
 
-    #[cfg(feature="const_generics")]
+    #[cfg(feature = "const_generics")]
     mod cg_array_buf {
         /// A buffer backing onto an array (used to provide default) - using constant generics
-        pub struct ArrayBuf<T, const N: usize>
-        {
+        pub struct ArrayBuf<T, const N: usize> {
             inner: [::core::mem::MaybeUninit<T>; N],
         }
-        impl<T:, const N: usize> ::core::default::Default for ArrayBuf<T, N>
+        impl<T, const N: usize> ::core::default::Default for ArrayBuf<T, N>
         where
             T: crate::Pod,
         {
@@ -172,7 +182,7 @@ pub mod buffers {
                 }
             }
         }
-        unsafe impl<T,const N: usize> crate::DataBuf for ArrayBuf<T, N>
+        unsafe impl<T, const N: usize> crate::DataBuf for ArrayBuf<T, N>
         where
             T: crate::Pod,
         {
@@ -185,10 +195,9 @@ pub mod buffers {
             }
             fn extend(&mut self, len: usize) -> Result<(), ()> {
                 if len > N {
-                    Err( () )
-                }
-                else {
-                    Ok( () )
+                    Err(())
+                } else {
+                    Ok(())
                 }
             }
         }
@@ -203,23 +212,23 @@ pub mod buffers {
 
     /// 16 bytes, 64-bit alignment
     pub type U64_2 = ArrayBuf<u64, n::U2>;
-    
+
     /// 16 pointers (64/128 bytes, with pointer alignment)
     pub type Ptr16 = ArrayBuf<*const (), n::U16>;
-    
+
     /// Two pointers, useful for wrapping a pointer along with a vtable
     pub type Ptr2 = ArrayBuf<*const (), n::U2>;
     /// One pointer, can only store the vtable
     pub type Ptr1 = ArrayBuf<*const (), n::U1>;
 
     /// Dyanamically allocated buffer with 8-byte alignment
-    #[cfg(feature="alloc")]
+    #[cfg(feature = "alloc")]
     pub type U64Vec = ::alloc::vec::Vec<::core::mem::MaybeUninit<u64>>;
     /// Dyanamically allocated buffer with 1-byte alignment
-    #[cfg(feature="alloc")]
+    #[cfg(feature = "alloc")]
     pub type U8Vec = ::alloc::vec::Vec<::core::mem::MaybeUninit<u8>>;
     /// Dyanamically allocated buffer with pointer alignment
-    #[cfg(feature="alloc")]
+    #[cfg(feature = "alloc")]
     pub type PtrVec = ::alloc::vec::Vec<::core::mem::MaybeUninit<*const ()>>;
 }
 
@@ -232,27 +241,30 @@ pub mod value;
 
 #[cfg(feature = "const_generics")]
 /// A single dynamically-sized value stored in a `usize` aligned buffer
-/// 
+///
 /// ```
 /// let v = ::stack_dst::ValueU::<[u8], 16>::new_stable([1,2,3], |v| v);
 /// ```
-pub type ValueU<T /*: ?Sized*/, const N: usize /* = {8+1}*/> = Value<T, buffers::ConstArrayBuf<usize, N>>;
+pub type ValueU<T /*: ?Sized*/, const N: usize /* = {8+1}*/> =
+    Value<T, buffers::ConstArrayBuf<usize, N>>;
 #[cfg(feature = "const_generics")]
 /// A single LIFO stack of DSTs using a `usize` aligned buffer
-/// 
+///
 /// ```
 /// let mut stack = ::stack_dst::StackU::<[u8], 16>::new();
 /// stack.push_copied(&[1]);
 /// ```
-pub type StackU<T /*: ?Sized*/, const N: usize /* = 16*/> = Stack<T, buffers::ConstArrayBuf<usize, N>>;
+pub type StackU<T /*: ?Sized*/, const N: usize /* = 16*/> =
+    Stack<T, buffers::ConstArrayBuf<usize, N>>;
 #[cfg(feature = "const_generics")]
 /// A FIFO queue of DSTs using a `usize` aligned buffer
-/// 
+///
 /// ```
 /// let mut queue = ::stack_dst::FifoU::<[u8], 16>::new();
 /// queue.push_copied(&[1]);
 /// ```
-pub type FifoU<T /*: ?Sized*/, const N: usize /* = {8+1}*/> = Fifo<T, buffers::ConstArrayBuf<usize, N>>;
+pub type FifoU<T /*: ?Sized*/, const N: usize /* = {8+1}*/> =
+    Fifo<T, buffers::ConstArrayBuf<usize, N>>;
 
 fn decompose_pointer<T: ?Sized>(mut ptr: *const T) -> (*const (), usize, [usize; 3]) {
     let addr = ptr as *const ();
@@ -262,8 +274,8 @@ fn decompose_pointer<T: ?Sized>(mut ptr: *const T) -> (*const (), usize, [usize;
         rv[0] == addr as usize,
         "BUG: Pointer layout is not (data_ptr, info...)"
     );
-    vals[..rv.len()-1].copy_from_slice(&rv[1..]);
-    (addr, rv.len()-1, vals,)
+    vals[..rv.len() - 1].copy_from_slice(&rv[1..]);
+    (addr, rv.len() - 1, vals)
 }
 
 fn mem_as_slice<T>(ptr: &mut T) -> &mut [usize] {
@@ -277,7 +289,7 @@ fn mem_as_slice<T>(ptr: &mut T) -> &mut [usize] {
 /// Re-construct a fat pointer
 unsafe fn make_fat_ptr<T: ?Sized, W: Pod>(data_ptr: *mut (), meta_vals: &BufSlice<W>) -> *mut T {
     #[repr(C)]
-    #[derive(Copy,Clone)]
+    #[derive(Copy, Clone)]
     struct Raw {
         ptr: *const (),
         meta: [usize; 4],
@@ -286,23 +298,33 @@ unsafe fn make_fat_ptr<T: ?Sized, W: Pod>(data_ptr: *mut (), meta_vals: &BufSlic
         ptr: *mut T,
         raw: Raw,
     }
-    let mut rv = Inner { raw: Raw { ptr: data_ptr, meta: [0; 4] } };
+    let mut rv = Inner {
+        raw: Raw {
+            ptr: data_ptr,
+            meta: [0; 4],
+        },
+    };
     assert!(meta_vals.len() * mem::size_of::<W>() % mem::size_of::<usize>() == 0);
     assert!(meta_vals.len() * mem::size_of::<W>() <= 4 * mem::size_of::<usize>());
     ptr::copy(
         meta_vals.as_ptr() as *const u8,
         rv.raw.meta.as_mut_ptr() as *mut u8,
-        meta_vals.len() * mem::size_of::<W>()
-        );
+        meta_vals.len() * mem::size_of::<W>(),
+    );
     let rv = rv.ptr;
     assert_eq!(rv as *const (), data_ptr as *const ());
     rv
 }
 /// Write metadata (abstraction around `ptr::copy`)
 fn store_metadata<W: Pod>(dst: &mut BufSlice<W>, meta_words: &[usize]) {
-    let n_bytes = meta_words.len() * mem::size_of::<usize>();
-    assert!(n_bytes <= dst.len() * mem::size_of::<W>(),
-        "nbytes [{}] <= dst.len() [{}] * sizeof [{}]", n_bytes, dst.len(), mem::size_of::<W>());
+    let n_bytes = core::mem::size_of_val(meta_words);
+    assert!(
+        n_bytes <= dst.len() * mem::size_of::<W>(),
+        "nbytes [{}] <= dst.len() [{}] * sizeof [{}]",
+        n_bytes,
+        dst.len(),
+        mem::size_of::<W>()
+    );
     unsafe {
         ptr::copy(
             meta_words.as_ptr() as *const u8,
@@ -340,14 +362,20 @@ fn check_fat_pointer<U, T: ?Sized>(v: &U, get_ref: impl FnOnce(&U) -> &T) -> &T 
 /// - `reset_value` - Value used in `reset_slot`
 ///
 /// This provides a panic-safe push as long as `reset_slot` and `reset_value` undo the allocation operation
-unsafe fn list_push_gen<T, W: Pod>(meta: &mut BufSlice<W>, data: &mut BufSlice<W>, count: usize, mut gen: impl FnMut(usize)->T, reset_slot: &mut usize, reset_value: usize)
-{
+unsafe fn list_push_gen<T, W: Pod>(
+    meta: &mut BufSlice<W>,
+    data: &mut BufSlice<W>,
+    count: usize,
+    mut gen: impl FnMut(usize) -> T,
+    reset_slot: &mut usize,
+    reset_value: usize,
+) {
     /// Helper to drop/zero all pushed items, and reset data structure state if there's a panic
     struct PanicState<'a, T>(*mut T, usize, &'a mut usize, usize);
     impl<'a, T> ::core::ops::Drop for PanicState<'a, T> {
         fn drop(&mut self) {
             if self.0.is_null() {
-                return ;
+                return;
             }
             // Reset the state of the data structure (leaking items)
             *self.2 = self.3;
@@ -365,13 +393,14 @@ unsafe fn list_push_gen<T, W: Pod>(meta: &mut BufSlice<W>, data: &mut BufSlice<W
 
     let mut ptr = data.as_mut_ptr() as *mut T;
     let mut clr = PanicState(ptr, 0, reset_slot, reset_value);
-    for i in 0 .. count {
+    for i in 0..count {
         let val = gen(i);
         ptr::write(ptr, val);
         ptr = ptr.offset(1);
         clr.1 += 1;
     }
-    clr.0 = ptr::null_mut();    // Prevent drops and prevent reset
+    // Prevent drops and prevent reset
+    clr.0 = ptr::null_mut();
     // Save the length once everything has been written
     crate::store_metadata(meta, &[count]);
 }

@@ -1,7 +1,7 @@
 //
 // Implementation of the `DataBuf` trait
 //
-use ::core::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 
 /// Trait used to represent a data buffer, typically you'll passs a `[usize; N]` array.
 ///
@@ -42,13 +42,15 @@ macro_rules! impl_pod {
 }
 impl_pod! { u8, u16, u32, u64, u128, usize }
 unsafe impl<T> Pod for *const T {
-    fn default() -> Self { ::core::ptr::null() }
+    fn default() -> Self {
+        ::core::ptr::null()
+    }
 }
 
 unsafe impl<T, U> DataBuf for &mut T
 where
     U: Pod,
-    T: DataBuf<Inner=U>,
+    T: DataBuf<Inner = U>,
 {
     type Inner = T::Inner;
     fn as_ref(&self) -> &[MaybeUninit<Self::Inner>] {
@@ -108,8 +110,7 @@ unsafe impl<T: Pod, const N: usize> DataBuf for [MaybeUninit<T>; N] {
     fn extend(&mut self, len: usize) -> Result<(), ()> {
         if len > N {
             Err(())
-        }
-        else {
+        } else {
             Ok(())
         }
     }
@@ -126,8 +127,8 @@ unsafe impl<T: Pod, const N: usize> DataBuf for [MaybeUninit<T>; N] {
 ///   println!("{}", line);
 /// }
 /// ```
-#[cfg(all(feature = "alloc"))]
-unsafe impl<T: Pod> crate::DataBuf for ::alloc::vec::Vec< MaybeUninit<T> > {
+#[cfg(feature = "alloc")]
+unsafe impl<T: Pod> crate::DataBuf for ::alloc::vec::Vec<MaybeUninit<T>> {
     type Inner = T;
     fn as_ref(&self) -> &[MaybeUninit<Self::Inner>] {
         self

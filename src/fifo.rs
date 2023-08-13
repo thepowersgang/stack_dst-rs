@@ -185,7 +185,6 @@ impl<T: ?Sized, D: ::DataBuf> Fifo<T, D> {
         }
     }
 
-
     /// Remove any items that don't meet a predicate
     ///
     /// ```
@@ -211,33 +210,31 @@ impl<T: ?Sized, D: ::DataBuf> Fifo<T, D> {
     /// ```
     pub fn retain<Cb>(&mut self, mut cb: Cb)
     where
-        Cb: FnMut(&mut T)->bool
+        Cb: FnMut(&mut T) -> bool,
     {
         let orig_write_pos = self.write_pos;
         self.write_pos = self.read_pos;
         let mut ofs = self.read_pos;
         let mut writeback_pos = ofs;
-        while ofs < orig_write_pos
-        {
+        while ofs < orig_write_pos {
             let v: &mut T = unsafe {
                 let meta = &mut self.data.as_mut()[ofs..];
                 let mw = Self::meta_words();
                 let (meta, data) = meta.split_at_mut(mw);
                 &mut *super::make_fat_ptr(data.as_mut_ptr() as *mut (), meta)
-                };
+            };
             let words = Self::meta_words() + D::round_to_words(mem::size_of_val(v));
             if cb(v) {
                 if writeback_pos != ofs {
                     let d = self.data.as_mut();
                     // writeback is always before `ofs`, so this ordering is correct
                     for i in 0..words {
-                        let (a,b) = d.split_at_mut(ofs+i);
-                        a[writeback_pos+i] = b[0];
+                        let (a, b) = d.split_at_mut(ofs + i);
+                        a[writeback_pos + i] = b[0];
                     }
                 }
                 writeback_pos += words;
-            }
-            else {
+            } else {
                 // Don't update `writeback_pos`
                 // SAFE: Valid pointer, won't be accessed again
                 unsafe {
@@ -261,8 +258,7 @@ struct PushInnerInfo<'a, DInner> {
     reset_value: usize,
 }
 
-impl<T: ?Sized, D: ::DataBuf> Fifo<T, D>
-{
+impl<T: ?Sized, D: ::DataBuf> Fifo<T, D> {
     /// Push an item to the list (setting metadata based on `fat_ptr`)
     /// UNSAFE: Caller must fill the buffer before any potential panic
     unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<PushInnerInfo<D::Inner>, ()> {
@@ -270,7 +266,11 @@ impl<T: ?Sized, D: ::DataBuf> Fifo<T, D>
         let (_data_ptr, len, v) = crate::decompose_pointer(fat_ptr);
         self.push_inner_raw(bytes, &v[..len])
     }
-    unsafe fn push_inner_raw(&mut self, bytes: usize, metadata: &[usize]) -> Result<PushInnerInfo<D::Inner>, ()> {
+    unsafe fn push_inner_raw(
+        &mut self,
+        bytes: usize,
+        metadata: &[usize],
+    ) -> Result<PushInnerInfo<D::Inner>, ()> {
         let words = D::round_to_words(bytes) + Self::meta_words();
 
         // 1. Check if there's space for the item
@@ -300,11 +300,11 @@ impl<T: ?Sized, D: ::DataBuf> Fifo<T, D>
 
         // Increment offset and return
         Ok(PushInnerInfo {
-            meta: meta,
+            meta,
             data: rv,
             reset_slot: &mut self.write_pos,
             reset_value: prev_write_pos,
-            })
+        })
     }
 }
 
@@ -312,8 +312,13 @@ impl<D: ::DataBuf> Fifo<str, D> {
     /// Push the contents of a string slice as an item onto the stack
     pub fn push_back_str(&mut self, v: &str) -> Result<(), ()> {
         unsafe {
-            self.push_inner(v)
-                .map(|pii| ptr::copy(v.as_bytes().as_ptr(), pii.data.as_mut_ptr() as *mut u8, v.len()))
+            self.push_inner(v).map(|pii| {
+                ptr::copy(
+                    v.as_bytes().as_ptr(),
+                    pii.data.as_mut_ptr() as *mut u8,
+                    v.len(),
+                )
+            })
         }
     }
 }
@@ -362,23 +367,30 @@ where
     (T, D::Inner): crate::AlignmentValid,
 {
     /// Push an item, populated from an exact-sized iterator
-    /// 
+    ///
     /// ```
     /// # extern crate core;
     /// # use stack_dst::Fifo;
     /// # use core::fmt::Display;
-    /// 
+    ///
     /// let mut stack = Fifo::<[u8], ::stack_dst::buffers::Ptr8>::new();
     /// stack.push_from_iter(0..10);
     /// assert_eq!(stack.front().unwrap(), &[0,1,2,3,4,5,6,7,8,9]);
     /// ```
-    pub fn push_from_iter(&mut self, mut iter: impl ExactSizeIterator<Item=T>)->Result<(),()> {
+    pub fn push_from_iter(&mut self, mut iter: impl ExactSizeIterator<Item = T>) -> Result<(), ()> {
         <(T, D::Inner) as crate::AlignmentValid>::check();
         // SAFE: API used correctly
         unsafe {
             let pii = self.push_inner_raw(iter.len() * mem::size_of::<T>(), &[0])?;
-            crate::list_push_gen(pii.meta, pii.data, iter.len(), |_| iter.next().unwrap(), pii.reset_slot, pii.reset_value);
-            Ok( () )
+            crate::list_push_gen(
+                pii.meta,
+                pii.data,
+                iter.len(),
+                |_| iter.next().unwrap(),
+                pii.reset_slot,
+                pii.reset_value,
+            );
+            Ok(())
         }
     }
 }
