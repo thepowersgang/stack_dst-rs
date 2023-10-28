@@ -204,7 +204,7 @@ pub mod buffers {
     }
 
     /// 8 pointers (32/64 bytes, with pointer alignment)
-    pub type Ptr8 = ArrayBuf<*const (), n::U8>;
+    pub type Ptr8 = ArrayBuf<usize, n::U8>;
     /// 64 bytes, 64-bit alignment
     pub type U64_8 = ArrayBuf<u64, n::U8>;
     /// 32 bytes, 8-bit alignment
@@ -214,12 +214,12 @@ pub mod buffers {
     pub type U64_2 = ArrayBuf<u64, n::U2>;
 
     /// 16 pointers (64/128 bytes, with pointer alignment)
-    pub type Ptr16 = ArrayBuf<*const (), n::U16>;
+    pub type Ptr16 = ArrayBuf<usize, n::U16>;
 
     /// Two pointers, useful for wrapping a pointer along with a vtable
-    pub type Ptr2 = ArrayBuf<*const (), n::U2>;
+    pub type Ptr2 = ArrayBuf<usize, n::U2>;
     /// One pointer, can only store the vtable
-    pub type Ptr1 = ArrayBuf<*const (), n::U1>;
+    pub type Ptr1 = ArrayBuf<usize, n::U1>;
 
     /// Dyanamically allocated buffer with 8-byte alignment
     #[cfg(feature = "alloc")]
@@ -229,7 +229,7 @@ pub mod buffers {
     pub type U8Vec = ::alloc::vec::Vec<::core::mem::MaybeUninit<u8>>;
     /// Dyanamically allocated buffer with pointer alignment
     #[cfg(feature = "alloc")]
-    pub type PtrVec = ::alloc::vec::Vec<::core::mem::MaybeUninit<*const ()>>;
+    pub type PtrVec = ::alloc::vec::Vec<::core::mem::MaybeUninit<usize>>;
 }
 
 /// Implementation of the FIFO list structure

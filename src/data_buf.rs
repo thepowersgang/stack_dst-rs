@@ -41,11 +41,6 @@ macro_rules! impl_pod {
     }
 }
 impl_pod! { u8, u16, u32, u64, u128, usize }
-unsafe impl<T> Pod for *const T {
-    fn default() -> Self {
-        ::core::ptr::null()
-    }
-}
 
 unsafe impl<T, U> DataBuf for &mut T
 where
