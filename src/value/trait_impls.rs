@@ -24,13 +24,34 @@ d! { ::core::iter::Iterator;
     fn next(&mut self) -> Option<Self::Item> {
         (**self).next()
     }
+    // NOTE: Only a few methods can be directly passed through
+    // Namely, those that don't use `self` by value and don't use generics
+
+    // Included because it's actually useful API information
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (**self).size_hint()
+    }
+
+    // Included because it can be
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        (**self).nth(n)
+    }
 }
 d! { ::core::iter::DoubleEndedIterator;
     fn next_back(&mut self) -> Option<Self::Item> {
         (**self).next_back()
     }
+
+    // Included because it can be
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        (**self).nth_back(n)
+    }
 }
 d! { ::core::iter::ExactSizeIterator;
+    fn len(&self) -> usize { (**self).len() }
+
+    // Unstable
+    //fn is_empty(&self) -> bool { (**self).is_empty() }
 }
 
 macro_rules! impl_fmt {
