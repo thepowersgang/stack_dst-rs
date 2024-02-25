@@ -42,10 +42,10 @@ d! { ::core::iter::DoubleEndedIterator;
         (**self).next_back()
     }
 
-    // Included because it can be
-    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        (**self).nth_back(n)
-    }
+    // Unstable in MSRV
+    //fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+    //    (**self).nth_back(n)
+    //}
 }
 d! { ::core::iter::ExactSizeIterator;
     fn len(&self) -> usize { (**self).len() }
