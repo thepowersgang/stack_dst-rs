@@ -88,7 +88,7 @@ impl<T: ?Sized, D: ::DataBuf> Fifo<T, D> {
     }
 
     /// Remove an item from the front of the list
-    pub fn pop_front(&mut self) -> Option<PopHandle<T, D>> {
+    pub fn pop_front(&mut self) -> Option<PopHandle<'_, T, D>> {
         if self.read_pos == self.write_pos {
             None
         } else {
@@ -122,7 +122,7 @@ impl<T: ?Sized, D: ::DataBuf> Fifo<T, D> {
     /// assert_eq!(it.next(), Some("world"));
     /// assert_eq!(it.next(), None);
     /// ```
-    pub fn iter(&self) -> Iter<T, D> {
+    pub fn iter(&self) -> Iter<'_, T, D> {
         Iter(self, self.read_pos)
     }
     /// Obtain a mutable iterator
@@ -138,7 +138,7 @@ impl<T: ?Sized, D: ::DataBuf> Fifo<T, D> {
     /// assert_eq!(it.next(), Some(&[8][..]));
     /// assert_eq!(it.next(), None);
     /// ```
-    pub fn iter_mut(&mut self) -> IterMut<T, D> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, T, D> {
         IterMut(self, self.read_pos)
     }
     // Note: No into_iter, not possible due to unsized types
@@ -179,9 +179,10 @@ impl<T: ?Sized, D: ::DataBuf> Fifo<T, D> {
         unsafe {
             let ptr = &mut *self.front_raw_mut();
             let len = mem::size_of_val(ptr);
-            ptr::drop_in_place(ptr);
             let words = D::round_to_words(len);
             self.read_pos += Self::meta_words() + words;
+            // Drop is the last operation, so if it panics the state is already updated
+            ptr::drop_in_place(ptr);
         }
     }
 
@@ -261,7 +262,7 @@ struct PushInnerInfo<'a, DInner> {
 impl<T: ?Sized, D: ::DataBuf> Fifo<T, D> {
     /// Push an item to the list (setting metadata based on `fat_ptr`)
     /// UNSAFE: Caller must fill the buffer before any potential panic
-    unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<PushInnerInfo<D::Inner>, ()> {
+    unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<PushInnerInfo<'_, D::Inner>, ()> {
         let bytes = mem::size_of_val(fat_ptr);
         let (_data_ptr, len, v) = crate::decompose_pointer(fat_ptr);
         self.push_inner_raw(bytes, &v[..len])
@@ -270,7 +271,7 @@ impl<T: ?Sized, D: ::DataBuf> Fifo<T, D> {
         &mut self,
         bytes: usize,
         metadata: &[usize],
-    ) -> Result<PushInnerInfo<D::Inner>, ()> {
+    ) -> Result<PushInnerInfo<'_, D::Inner>, ()> {
         let words = D::round_to_words(bytes) + Self::meta_words();
 
         // 1. Check if there's space for the item

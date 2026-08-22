@@ -44,6 +44,30 @@ fn slice_push_panic_safety() {
 }
 
 #[test]
+fn drop_panic_safety() {
+    type C = ::std::sync::Arc<::std::sync::atomic::AtomicUsize>;
+    struct Foo(bool, C);
+    impl ::std::ops::Drop for Foo {
+        fn drop(&mut self) {
+            self.1.fetch_add(1, ::std::sync::atomic::Ordering::SeqCst);
+            if self.0 {
+                self.0 = false;
+                panic!()
+            }
+        }
+    }
+    let v: C = Default::default();
+    ::std::panic::catch_unwind(|| {
+        let mut stack = DstFifo::<dyn std::any::Any>::new();
+        stack.push_back_stable(Foo(true , v.clone()), |p| p).ok().unwrap();
+        stack.push_back_stable(Foo(false, v.clone()), |p| p).ok().unwrap();
+        stack.pop_front();
+    }).err().unwrap();
+    // Only two drops expected, as the panicking drop should not happen twice
+    assert_eq!(v.load(std::sync::atomic::Ordering::Relaxed), 2, "Double-drop after panic-in-drop");
+}
+
+#[test]
 fn retain() {
     use std::sync::atomic::{AtomicUsize, Ordering};
     static FLAGS: AtomicUsize = AtomicUsize::new(0);

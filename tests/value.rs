@@ -105,6 +105,28 @@ fn stable_closure_subset() {
     let _ = Value8w::<dyn Debug>::new_stable((1, 2), |v| &v.0 as &dyn Debug);
 }
 
+#[test]
+fn replace_stable_drop_safety() {
+    type C = ::std::sync::Arc<::std::sync::atomic::AtomicUsize>;
+    struct Foo(bool, C);
+    impl ::std::ops::Drop for Foo {
+        fn drop(&mut self) {
+            self.1.fetch_add(1, ::std::sync::atomic::Ordering::SeqCst);
+            if self.0 {
+                self.0 = false;
+                panic!()
+            }
+        }
+    }
+    let v: C = Default::default();
+    ::std::panic::catch_unwind(|| {
+        let mut value = Value8w::<dyn std::any::Any>::new_stable(Foo(true,v.clone()), |p| p).ok().unwrap();
+        value.replace_stable((), |p|p).ok().unwrap();
+    }).err().unwrap();
+    // Only two drops expected, as the panicking drop should not happen twice
+    assert_eq!(v.load(std::sync::atomic::Ordering::Relaxed), 1, "Double-drop after panic-in-drop");
+}
+
 // Various checks that ensure that any way of creating a structure also checks the alignment
 // - In the future, these would compile-error (using const-generics)
 #[cfg(not(feature = "full_const_generics"))]

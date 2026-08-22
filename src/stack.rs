@@ -150,10 +150,14 @@ impl<T: ?Sized, D: ::DataBuf> Stack<T, D> {
             // SAFE: Pointer is valid, and will never be accessed after this point
             let words = unsafe {
                 let size = mem::size_of_val(&*ptr);
-                ptr::drop_in_place(ptr);
                 D::round_to_words(size)
             };
             self.next_ofs -= words + Self::meta_words();
+            // Drop after updating, so even if `drop_in_place` panics the item is already gone
+            // SAFE: Pointer is valid, and will never be accessed after this point
+            unsafe {
+                ptr::drop_in_place(ptr);
+            }
         }
     }
 
@@ -167,7 +171,7 @@ impl<T: ?Sized, D: ::DataBuf> Stack<T, D> {
     /// assert_eq!(it.next(), Some("Hello"));
     /// assert_eq!(it.next(), None);
     /// ```
-    pub fn iter(&self) -> Iter<T, D> {
+    pub fn iter(&self) -> Iter<'_, T, D> {
         Iter(self, self.next_ofs)
     }
     /// Obtain unique/mutable iterator
@@ -183,7 +187,7 @@ impl<T: ?Sized, D: ::DataBuf> Stack<T, D> {
     /// assert_eq!(it.next(), Some(&[0,2,3][..]));
     /// assert_eq!(it.next(), None);
     /// ```
-    pub fn iter_mut(&mut self) -> IterMut<T, D> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, T, D> {
         IterMut(self, self.next_ofs)
     }
 }
@@ -199,7 +203,7 @@ struct PushInnerInfo<'a, DInner> {
 }
 impl<T: ?Sized, D: ::DataBuf> Stack<T, D> {
     /// See `push_inner_raw`
-    unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<PushInnerInfo<D::Inner>, ()> {
+    unsafe fn push_inner(&mut self, fat_ptr: &T) -> Result<PushInnerInfo<'_, D::Inner>, ()> {
         let bytes = mem::size_of_val(fat_ptr);
         let (_data_ptr, len, v) = crate::decompose_pointer(fat_ptr);
         self.push_inner_raw(bytes, &v[..len])
@@ -213,7 +217,7 @@ impl<T: ?Sized, D: ::DataBuf> Stack<T, D> {
         &mut self,
         bytes: usize,
         metadata: &[usize],
-    ) -> Result<PushInnerInfo<D::Inner>, ()> {
+    ) -> Result<PushInnerInfo<'_, D::Inner>, ()> {
         assert!(D::round_to_words(mem::size_of_val(metadata)) == Self::meta_words());
         let words = D::round_to_words(bytes) + Self::meta_words();
 

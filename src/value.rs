@@ -223,8 +223,20 @@ impl<T: ?Sized, D: ::DataBuf> Value<T, D> {
         }
         // If met, drop the existing item and move in the new item
         unsafe {
-            ptr::drop_in_place::<T>(&mut **self);
+            struct PanicAbort;
+            impl ::core::ops::Drop for PanicAbort {
+                fn drop(&mut self) {
+                    panic!("");
+                }
+            }
+            // NOTE: if there's no metadata, we have to abort on panic :(
+            let _v = if meta_len == 0 { Some(PanicAbort) } else { None };
+            let to_drop = self.as_ptr_mut();
+            // Fill metadata with `-1`, as a sentinel to the drop glue, in case there's a 
+            self.write_value(0 as _, 0, &[!0; 3][..meta_len]);
+            ptr::drop_in_place::<T>(to_drop);
             self.write_value(raw_ptr, mem::size_of::<U>(), info);
+            ::core::mem::forget(_v);
         }
         Ok(())
     }
@@ -246,6 +258,18 @@ impl<T: ?Sized, D: ::DataBuf> Value<T, D> {
         U: marker::Unsize<T>,
     {
         self.replace_stable(val, |v| v)
+    }
+    
+    fn is_replace_sentinel(&self) -> bool{
+        unsafe {
+            let data = self.data.as_ref();
+            let info_size = mem::size_of::<*mut T>() / mem::size_of::<usize>() - 1;
+            let info_ofs = data.len() - D::round_to_words(info_size * mem::size_of::<usize>());
+            let (_, meta) = data.split_at(info_ofs);
+            let v = &*ptr::slice_from_raw_parts(meta.as_ptr() as *const u8, meta.len() * size_of::<D::Inner>());
+
+            v.len() != 0 && v.iter().all(|v| *v == !0)
+        }
     }
 
     /// Obtain raw pointer to the contained data
@@ -490,16 +514,21 @@ where
 impl<T: ?Sized, D: ::DataBuf> ops::Deref for Value<T, D> {
     type Target = T;
     fn deref(&self) -> &T {
+        assert!(!self.is_replace_sentinel());
         unsafe { &*self.as_ptr() }
     }
 }
 impl<T: ?Sized, D: ::DataBuf> ops::DerefMut for Value<T, D> {
     fn deref_mut(&mut self) -> &mut T {
+        assert!(!self.is_replace_sentinel());
         unsafe { &mut *self.as_ptr_mut() }
     }
 }
 impl<T: ?Sized, D: ::DataBuf> ops::Drop for Value<T, D> {
     fn drop(&mut self) {
+        if self.is_replace_sentinel() {
+            return
+        }
         unsafe { ptr::drop_in_place(&mut **self) }
     }
 }
