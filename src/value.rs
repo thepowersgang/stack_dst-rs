@@ -266,7 +266,7 @@ impl<T: ?Sized, D: ::DataBuf> Value<T, D> {
             let info_size = mem::size_of::<*mut T>() / mem::size_of::<usize>() - 1;
             let info_ofs = data.len() - D::round_to_words(info_size * mem::size_of::<usize>());
             let (_, meta) = data.split_at(info_ofs);
-            let v = &*ptr::slice_from_raw_parts(meta.as_ptr() as *const u8, meta.len() * size_of::<D::Inner>());
+            let v = core::slice::from_raw_parts(meta.as_ptr() as *const u8, meta.len() * mem::size_of::<D::Inner>());
 
             v.len() != 0 && v.iter().all(|v| *v == !0)
         }

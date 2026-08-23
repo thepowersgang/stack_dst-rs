@@ -24,3 +24,5 @@ all-features = true
 
 [dependencies]
 generic-array = "0.14"
+# Force typenum to not be 1.20 (or later), as that hits a recursion limit on rustc 1.36.0
+typenum = "=1.19"
