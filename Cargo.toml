@@ -17,7 +17,7 @@ alloc = []
 unsize = []
 const_generics = [] # increases MSRV to "1.51.0"
 # EXPERIMENTAL
-#full_const_generics = []
+full_const_generics = []
 
 [package.metadata.docs.rs]
 all-features = true

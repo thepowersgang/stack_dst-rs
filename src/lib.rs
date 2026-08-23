@@ -86,6 +86,7 @@ extern crate std;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+#[allow(deprecated)]
 extern crate generic_array;
 
 mod data_buf;
@@ -124,12 +125,14 @@ pub mod buffers {
         use core::mem::MaybeUninit;
 
         /// A buffer backing onto an array (used to provide default)
+        #[allow(deprecated)]
         pub struct ArrayBuf<T, N>
         where
             N: ::generic_array::ArrayLength<MaybeUninit<T>>,
         {
             inner: ::generic_array::GenericArray<MaybeUninit<T>, N>,
         }
+        #[allow(deprecated)]
         impl<T, N> ::core::default::Default for ArrayBuf<T, N>
         where
             N: ::generic_array::ArrayLength<MaybeUninit<T>>,
@@ -144,6 +147,7 @@ pub mod buffers {
                 }
             }
         }
+        #[allow(deprecated)]
         unsafe impl<T, N> crate::DataBuf for ArrayBuf<T, N>
         where
             T: crate::Pod,
