@@ -145,6 +145,7 @@ impl<T: ?Sized, D: ::DataBuf> Value<T, D> {
     pub fn new_or_boxed<U>(val: U) -> Value<T, D>
     where
         (U, D::Inner): crate::AlignmentValid,
+        (::alloc::boxed::Box<U>, D::Inner): crate::AlignmentValid,
         U: marker::Unsize<T>,
         ::alloc::boxed::Box<U>: marker::Unsize<T>,
         D: Default,
