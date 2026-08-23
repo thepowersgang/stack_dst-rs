@@ -36,8 +36,8 @@
 //! If you need larger alignment, you can use a different type for the backing array.
 //! (Note, that metadata uses at least one slot in the array)
 //!
-//! This code panics, because i128 requires 8/16 byte alignment (usually)
-//! ```should_panic
+//! This code panics (or fails to compile, if using const generics), because i128 requires 8/16 byte alignment (usually)
+//! ```ignore
 //! # use stack_dst::Value;
 //! # use std::any::Any;
 //! let v: Value<dyn Any, ::stack_dst::buffers::U8_32> =
@@ -57,7 +57,7 @@
 //! ## `const_generics` (default)
 //! Uses value/constant generics to provide a slightly nicer API (e.g. [ValueU])
 //! ## `unsize` (optional)
-//! Uses the nightly feature `unsize` to provide a more egonomic API
+//! Uses the nightly feature `unsize` to provide a more ergonomic API
 //! (no need for the `|p| p` closures)
 // //! ## `full_const_generics` (optional)
 // //! Uses extended const generics to give compile time alignment errors
@@ -270,24 +270,24 @@ pub type StackU<T /*: ?Sized*/, const N: usize /* = 16*/> =
 pub type FifoU<T /*: ?Sized*/, const N: usize /* = {8+1}*/> =
     Fifo<T, buffers::ConstArrayBuf<usize, N>>;
 
-fn decompose_pointer<T: ?Sized>(mut ptr: *const T) -> (*const (), usize, [usize; 3]) {
+fn decompose_pointer<T: ?Sized>(mut ptr: *const T) -> (*const (), usize, [*const (); 3]) {
     let addr = ptr as *const ();
     let rv = mem_as_slice(&mut ptr);
-    let mut vals = [0; 3];
+    let mut vals = [core::ptr::null(); 3];
     assert!(
-        rv[0] == addr as usize,
+        rv[0] == addr as *const (),
         "BUG: Pointer layout is not (data_ptr, info...)"
     );
     vals[..rv.len() - 1].copy_from_slice(&rv[1..]);
     (addr, rv.len() - 1, vals)
 }
 
-fn mem_as_slice<T>(ptr: &mut T) -> &mut [usize] {
+fn mem_as_slice<T>(ptr: &mut T) -> &mut [*const ()] {
     assert!(mem::size_of::<T>() % mem::size_of::<usize>() == 0);
     assert!(mem::align_of::<T>() % mem::align_of::<usize>() == 0);
     let words = mem::size_of::<T>() / mem::size_of::<usize>();
     // SAFE: Points to valid memory (a raw pointer)
-    unsafe { slice::from_raw_parts_mut(ptr as *mut _ as *mut usize, words) }
+    unsafe { slice::from_raw_parts_mut(ptr as *mut _ as *mut *const (), words) }
 }
 
 /// Re-construct a fat pointer
@@ -320,7 +320,7 @@ unsafe fn make_fat_ptr<T: ?Sized, W: Pod>(data_ptr: *mut (), meta_vals: &BufSlic
     rv
 }
 /// Write metadata (abstraction around `ptr::copy`)
-fn store_metadata<W: Pod>(dst: &mut BufSlice<W>, meta_words: &[usize]) {
+fn store_metadata<W: Pod>(dst: &mut BufSlice<W>, meta_words: &[*const ()]) {
     let n_bytes = core::mem::size_of_val(meta_words);
     assert!(
         n_bytes <= dst.len() * mem::size_of::<W>(),
@@ -406,7 +406,7 @@ unsafe fn list_push_gen<T, W: Pod>(
     // Prevent drops and prevent reset
     clr.0 = ptr::null_mut();
     // Save the length once everything has been written
-    crate::store_metadata(meta, &[count]);
+    crate::store_metadata(meta, &[count as *const ()]);
 }
 
 /// Marker trait used to check alignment

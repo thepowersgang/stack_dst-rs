@@ -270,7 +270,7 @@ impl<T: ?Sized, D: ::DataBuf> Fifo<T, D> {
     unsafe fn push_inner_raw(
         &mut self,
         bytes: usize,
-        metadata: &[usize],
+        metadata: &[*const ()],
     ) -> Result<PushInnerInfo<'_, D::Inner>, ()> {
         let words = D::round_to_words(bytes) + Self::meta_words();
 
@@ -382,7 +382,7 @@ where
         <(T, D::Inner) as crate::AlignmentValid>::check();
         // SAFE: API used correctly
         unsafe {
-            let pii = self.push_inner_raw(iter.len() * mem::size_of::<T>(), &[0])?;
+            let pii = self.push_inner_raw(iter.len() * mem::size_of::<T>(), &[0 as *const ()])?;
             crate::list_push_gen(
                 pii.meta,
                 pii.data,

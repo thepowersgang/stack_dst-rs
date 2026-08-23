@@ -56,15 +56,16 @@ fn drop_panic_safety() {
             }
         }
     }
-    let v: C = Default::default();
+    let counter: C = Default::default();
     ::std::panic::catch_unwind(|| {
         let mut stack = DstFifo::<dyn std::any::Any>::new();
-        stack.push_back_stable(Foo(true , v.clone()), |p| p).ok().unwrap();
-        stack.push_back_stable(Foo(false, v.clone()), |p| p).ok().unwrap();
+        stack.push_back_stable(Foo(true , counter.clone()), |p| p).ok().unwrap();
+        stack.push_back_stable(Foo(false, counter.clone()), |p| p).ok().unwrap();
+        stack.front().unwrap().downcast_ref::<Foo>().unwrap().1.load(std::sync::atomic::Ordering::Relaxed);
         stack.pop_front();
     }).err().unwrap();
     // Only two drops expected, as the panicking drop should not happen twice
-    assert_eq!(v.load(std::sync::atomic::Ordering::Relaxed), 2, "Double-drop after panic-in-drop");
+    assert_eq!(counter.load(std::sync::atomic::Ordering::Relaxed), 2, "Double-drop after panic-in-drop");
 }
 
 #[test]

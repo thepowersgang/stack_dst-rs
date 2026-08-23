@@ -159,7 +159,7 @@ impl<T: ?Sized, D: ::DataBuf> Value<T, D> {
 
     /// UNSAFE: `data` must point to `size` bytes, which shouldn't be freed if `Some` is returned
     pub unsafe fn new_raw(
-        info: &[usize],
+        info: &[*const ()],
         data: *mut (),
         size: usize,
         mut buffer: D,
@@ -177,7 +177,7 @@ impl<T: ?Sized, D: ::DataBuf> Value<T, D> {
         Some(mem::ManuallyDrop::into_inner(rv))
     }
 
-    unsafe fn write_value(&mut self, data: *const (), size: usize, info: &[usize]) {
+    unsafe fn write_value(&mut self, data: *const (), size: usize, info: &[*const ()]) {
         let info_words = D::round_to_words(mem::size_of_val(info));
         let req_words = info_words + D::round_to_words(size);
         let buf = self.data.as_mut();
@@ -232,9 +232,13 @@ impl<T: ?Sized, D: ::DataBuf> Value<T, D> {
             }
             // NOTE: if there's no metadata, we have to abort on panic :(
             let _v = if meta_len == 0 { Some(PanicAbort) } else { None };
-            let to_drop = self.as_ptr_mut();
-            // Fill metadata with `-1`, as a sentinel to the drop glue, in case there's a 
-            self.write_value(0 as _, 0, &[!0; 3][..meta_len]);
+            let data = self.data.as_mut();
+            let info_size = mem::size_of::<*mut T>() / mem::size_of::<usize>() - 1;
+            let info_ofs = data.len() - D::round_to_words(info_size * mem::size_of::<usize>());
+            let (data, meta) = data.split_at_mut(info_ofs);
+            let to_drop = super::make_fat_ptr(data.as_mut_ptr() as *mut (), meta);
+            // Fill metadata with `-1`, as a sentinel to the drop glue, in case there's a panic while running `drop_in_place`
+            crate::store_metadata(meta, &[!0 as *const (); 3][..meta_len]);
             ptr::drop_in_place::<T>(to_drop);
             self.write_value(raw_ptr, mem::size_of::<U>(), info);
             ::core::mem::forget(_v);
@@ -384,7 +388,7 @@ impl<D: ::DataBuf> Value<str, D> {
                 (data.as_mut_ptr() as *mut u8).add(ofs),
                 val.len(),
             );
-            crate::store_metadata(&mut data[info_ofs..], &[ofs + val.len()]);
+            crate::store_metadata(&mut data[info_ofs..], &[(ofs + val.len()) as *const ()]);
         }
 
         Ok(())
@@ -405,7 +409,7 @@ impl<D: ::DataBuf> Value<str, D> {
             let info_words = D::round_to_words(mem::size_of::<usize>());
             let data = self.data.as_mut();
             let info_ofs = data.len() - info_words;
-            crate::store_metadata(&mut data[info_ofs..], &[len]);
+            crate::store_metadata(&mut data[info_ofs..], &[len as *const ()]);
         }
     }
 }
@@ -441,7 +445,7 @@ where
         let info_ofs = data.len() - info_words;
         let (_data_dst, info_dst) = data.split_at_mut(info_ofs);
 
-        crate::store_metadata(info_dst, &[0]);
+        crate::store_metadata(info_dst, &[0 as *const ()]);
         Ok(rv)
     }
 
@@ -466,7 +470,7 @@ where
         }
         // Only update item count after the write
         let info_ofs = data.len() - info_words;
-        crate::store_metadata(&mut data[info_ofs..], &[ofs + 1]);
+        crate::store_metadata(&mut data[info_ofs..], &[(ofs + 1) as *const ()]);
 
         Ok(())
     }
@@ -504,7 +508,7 @@ where
             let info_words = D::round_to_words(mem::size_of::<usize>());
             let info_ofs = data.len() - info_words;
             unsafe {
-                crate::store_metadata(&mut data[info_ofs..], &[ofs]);
+                crate::store_metadata(&mut data[info_ofs..], &[ofs as *const ()]);
                 Some(ptr::read((data.as_ptr() as *const I).add(ofs)))
             }
         } else {
